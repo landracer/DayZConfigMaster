@@ -8450,36 +8450,31 @@ To use these features, configure your Steam Web API key in Preferences (Steam Wo
         return f"{base}_instance_{instance_id}"
 
     def _build_isolated_instance_env(self, instance_root: Path) -> Dict[str, str]:
-        """Build an environment that isolates per-instance Steam/IPC state.
+        """Build an environment that isolates per-instance Steam/IPC sockets.
 
         DayZ's Steam client libraries (steamclient.so) maintain singleton IPC
-        state in the user's HOME directory (e.g. ~/.steam/steam.pipe). When
-        multiple server instances run under the same Linux user, this shared
-        state causes only the first-started instance to register successfully
-        with Steam and accept connections.
+        state under XDG_RUNTIME_DIR (e.g. ~/.steam/steam.pipe). When multiple
+        server instances run under the same Linux user, this shared state
+        causes only the first-started instance to register successfully with
+        Steam and accept connections.
 
-        Giving each instance its own HOME and XDG directories keeps the Steam
-        runtime state separate while still inheriting PATH and library paths
-        from the launching environment.
+        We therefore isolate only the runtime/socket directories while keeping
+        the real HOME/XDG_CONFIG_HOME/XDG_DATA_HOME visible, so Steam can still
+        find credentials, libraries, and the user's installed workshop content.
         """
-        home_dir = instance_root / ".dayzhome"
-        config_dir = home_dir / ".config"
-        data_dir = home_dir / ".local" / "share"
-        runtime_dir = home_dir / ".runtime"
-        tmp_dir = home_dir / ".tmp"
+        runtime_dir = instance_root / ".runtime"
+        steam_runtime_dir = runtime_dir / "steam"
+        tmp_dir = instance_root / ".tmp"
 
-        for directory in (home_dir, config_dir, data_dir, runtime_dir, tmp_dir):
+        for directory in (runtime_dir, steam_runtime_dir, tmp_dir):
             directory.mkdir(parents=True, exist_ok=True)
 
         env = os.environ.copy()
-        env["HOME"] = str(home_dir)
-        env["XDG_CONFIG_HOME"] = str(config_dir)
-        env["XDG_DATA_HOME"] = str(data_dir)
         env["XDG_RUNTIME_DIR"] = str(runtime_dir)
         env["TMPDIR"] = str(tmp_dir)
         # STEAM_RUNTIME_DIR influences where steamclient.so places its IPC
-        # sockets; point it inside the isolated home as well.
-        env["STEAM_RUNTIME_DIR"] = str(runtime_dir / "steam")
+        # sockets; point it inside the isolated runtime dir.
+        env["STEAM_RUNTIME_DIR"] = str(steam_runtime_dir)
         return env
 
     def _link_base_server_files(
@@ -8575,6 +8570,11 @@ To use these features, configure your Steam Web API key in Preferences (Steam Wo
                 continue
             if item.name not in required_names and not item.name.startswith("@"):
                 # Optional map folders (e.g. chernarusplus, sakhal) are useful.
+                # CrashReporter is an executable on some installs and a directory
+                # on others; don't symlink it at all to avoid "Is a directory"
+                # noise if the server crashes.
+                if item.name == "CrashReporter":
+                    continue
                 if not item.is_dir():
                     continue
 
