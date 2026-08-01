@@ -1261,18 +1261,18 @@ Trader2 {
         self._server_config_notebook.add(files_frame, text="Files")
         self._create_server_config_files_content(files_frame)
 
-        # XML Config Editor tab
+        # Mission XML Editor tab
         xml_editor_frame = ttk.Frame(self._server_config_notebook)
         xml_editor_frame.columnconfigure(0, weight=1)
         xml_editor_frame.rowconfigure(0, weight=1)
-        self._server_config_notebook.add(xml_editor_frame, text="XML Config Editor")
+        self._server_config_notebook.add(xml_editor_frame, text="Mission XML Editor")
         self._xml_config_editor_tab = XmlConfigEditorTab(xml_editor_frame, self._get_current_mission_root)
 
-        # Mod Integration tab
+        # Vehicle Quick Setup tab
         integration_frame = ttk.Frame(self._server_config_notebook)
         integration_frame.columnconfigure(0, weight=1)
         integration_frame.rowconfigure(0, weight=1)
-        self._server_config_notebook.add(integration_frame, text="Mod Integration")
+        self._server_config_notebook.add(integration_frame, text="Vehicle Quick Setup")
         self._mod_integration_tab = ModIntegrationTab(integration_frame, self._get_current_mission_root)
 
         # Auto-refresh Mod Settings when its tab is selected so it always
@@ -1966,7 +1966,7 @@ Trader2 {
         editor_btn_frame.grid(row=3, column=0, sticky=tk.E, pady=(5, 0))
         self._interactive_toggle_btn = ttk.Button(
             editor_btn_frame,
-            text="Interactive View",
+            text="Text Editor",
             command=self._toggle_interactive_editor,
             state=tk.DISABLED,
         )
@@ -1978,6 +1978,7 @@ Trader2 {
 
         self._mod_settings_path: Optional[Path] = None
         self._INTERACTIVE_WIDGET_LIMIT = 20
+        self._interactive_editor_default = True
         self._refresh_mod_settings()
 
     def _detect_mod_settings_files(self) -> List[Tuple[str, str, Path]]:
@@ -2286,7 +2287,22 @@ Trader2 {
                 return
 
             self._last_parsed_settings = settings
-            if settings and len(settings) > self._INTERACTIVE_WIDGET_LIMIT:
+            can_interactive = bool(
+                settings
+                and len(settings) <= self._INTERACTIVE_WIDGET_LIMIT
+                and not any(s.name.startswith("_error") for s in settings)
+            )
+
+            if can_interactive:
+                self._mod_settings_status.config(
+                    text=f"Loaded {path.name} — interactive editor active ({len(settings)} setting(s))",
+                    foreground="green",
+                )
+                self._interactive_toggle_btn.config(state=tk.NORMAL)
+                # Show the interactive editor by default; text editor is the fallback.
+                self._show_interactive_editor(path, settings)
+                self._interactive_toggle_btn.config(text="Text Editor")
+            elif settings and len(settings) > self._INTERACTIVE_WIDGET_LIMIT:
                 self._mod_settings_status.config(
                     text=(
                         f"Loaded {path.name} — {len(settings)} settings exceeds "
@@ -2295,12 +2311,6 @@ Trader2 {
                     foreground="orange",
                 )
                 self._interactive_toggle_btn.config(state=tk.DISABLED)
-            elif settings and not any(s.name.startswith("_error") for s in settings):
-                self._mod_settings_status.config(
-                    text=f"Loaded {path.name} — {len(settings)} setting(s) available.",
-                    foreground="green",
-                )
-                self._interactive_toggle_btn.config(state=tk.NORMAL)
             else:
                 self._mod_settings_status.config(
                     text=f"Loaded {path.name} (text only)", foreground="gray"
@@ -2515,8 +2525,9 @@ Trader2 {
             # Buttons
             btn_frame = ttk.Frame(scrollable)
             btn_frame.pack(fill=tk.X, pady=(0, 10))
-            ttk.Button(btn_frame, text="Apply Changes", command=self._apply_interactive_changes).pack(side=tk.LEFT, padx=(0, 5))
-            ttk.Button(btn_frame, text="Reset", command=lambda: self._show_interactive_editor(path, settings)).pack(side=tk.LEFT)
+            ttk.Button(btn_frame, text="Save Changes", command=self._save_interactive_changes).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(btn_frame, text="Reset", command=lambda: self._show_interactive_editor(path, settings)).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(btn_frame, text="Edit as Text", command=lambda: self._show_text_editor(path)).pack(side=tk.LEFT)
 
             self._interactive_canvas = canvas
             self._interactive_scrollable = scrollable
@@ -2589,10 +2600,13 @@ Trader2 {
         """Store a changed value from an interactive widget."""
         self._interactive_setting_values[name] = value
 
-    def _apply_interactive_changes(self) -> None:
-        """Write interactive editor values back to the raw text editor."""
+    def _apply_interactive_changes(self) -> bool:
+        """Write interactive editor values back to the raw text editor.
+
+        Returns True if the text editor was updated.
+        """
         if self._mod_settings_path is None:
-            return
+            return False
 
         suffix = self._mod_settings_path.suffix.lower()
         text = self._mod_settings_editor.get("1.0", tk.END)
@@ -2603,32 +2617,46 @@ Trader2 {
                 data = json.loads(text)
                 self._patch_json_values(data, self._interactive_setting_values)
                 updated = json.dumps(data, indent=4, ensure_ascii=False)
-            elif suffix in (".xml",):
-                # Interactive XML editing is lossy; mirror values as a preview
-                # and ask the user to confirm before saving.
-                messagebox.showinfo(
-                    "Interactive XML",
-                    "Interactive edits for XML files should be saved through the text editor.",
-                )
-                return
+            elif suffix in (".xml", ".cpp", ".hpp", ".txt"):
+                # Round-trip editing for these formats is lossy. Keep the user
+                # in interactive mode but do not silently overwrite the file.
+                return False
             else:
-                # For CPP/HPP, show values in a dialog.
-                messagebox.showinfo(
-                    "Apply Changes",
-                    "Edited values:\n" + "\n".join(
-                        f"{k} = {v}" for k, v in self._interactive_setting_values.items()
-                    ),
-                )
-                return
+                return False
         except Exception as exc:
             messagebox.showerror("Apply Error", f"Could not apply changes: {exc}")
-            return
+            return False
 
         self._mod_settings_editor.config(state=tk.NORMAL)
         self._mod_settings_editor.delete("1.0", tk.END)
         self._mod_settings_editor.insert("1.0", updated)
         self._mod_settings_editor.config(state=tk.NORMAL)
-        self._mod_settings_status.config(text="Interactive changes applied to text editor.", foreground="green")
+        return True
+
+    def _save_interactive_changes(self) -> None:
+        """Save directly from the interactive editor when safe to do so."""
+        if self._mod_settings_path is None:
+            return
+
+        suffix = self._mod_settings_path.suffix.lower()
+        if suffix != ".json":
+            # For non-JSON files, switch to the text editor with a friendly
+            # explanation so the user can save manually.
+            self._show_text_editor(self._mod_settings_path)
+            self._interactive_toggle_btn.config(text="Interactive View")
+            self._mod_settings_status.config(
+                text="Switched to text editor for this file type. Save when ready.",
+                foreground="orange",
+            )
+            return
+
+        if not self._apply_interactive_changes():
+            return
+
+        self._save_mod_settings()
+        self._mod_settings_status.config(
+            text="Interactive changes saved.", foreground="green"
+        )
 
     def _patch_json_values(self, data: Any, values: Dict[str, Any], prefix: str = "") -> None:
         """Recursively patch flattened dotted names into a JSON structure."""

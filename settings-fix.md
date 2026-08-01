@@ -156,12 +156,13 @@ def safe_widget_creation(self, widget_func, *args, **kwargs):
 1. Increased widget limit from 10 to 20 (`_INTERACTIVE_WIDGET_LIMIT = 20`)
 2. Added comprehensive BadAlloc error handling with graceful fallback to text view
 3. Replaced `SliderWidget` drag bars with direct numeric input fields showing min/max constraints
+4. **Interactive editor is now the default view** for parseable files; text editor is the fallback
 
 ### Phase 2: Enhancement Features ✅ COMPLETED
-1. Created `dayzconfigmaster/gui/xml_config_editor.py` — dedicated XML configuration editor tab
+1. Created `dayzconfigmaster/gui/xml_config_editor.py` — "Mission XML Editor" tab
 2. Implemented vehicle spawning enable/disable via `XmlConfigEditor.enable_vehicle_spawning()`
 3. Added validation for required XML entries in `ModIntegrationWorkflow.detect_actions()`
-4. Built one-click integration workflow in `dayzconfigmaster/gui/mod_integration_tab.py`
+4. Built one-click vehicle setup workflow in "Vehicle Quick Setup" tab (renamed to avoid confusion with Server Control > Mod Integration)
 
 ### Phase 3: Advanced Features (Deferred)
 1. Lazy loading of large configuration files
