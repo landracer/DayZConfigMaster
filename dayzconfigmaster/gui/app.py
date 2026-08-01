@@ -1934,9 +1934,9 @@ Trader2 {
         tree_scroll_y.config(command=self._mod_settings_tree.yview)
         tree_scroll_x.config(command=self._mod_settings_tree.xview)
 
-        self._mod_settings_tree.column("Mod", width=120)
-        self._mod_settings_tree.column("File", width=180)
-        self._mod_settings_tree.column("Path", width=250)
+        self._mod_settings_tree.column("Mod", width=160)
+        self._mod_settings_tree.column("File", width=220)
+        self._mod_settings_tree.column("Path", width=300)
         self._mod_settings_tree.heading("Mod", text="Mod")
         self._mod_settings_tree.heading("File", text="File")
         self._mod_settings_tree.heading("Path", text="Path")
@@ -2204,9 +2204,11 @@ Trader2 {
         if len(values) < 3:
             return
 
+        mod_name = values[0] or "Unknown"
+        file_name = values[1]
         path = Path(values[2])
         self._mod_settings_path = path
-        self._mod_settings_file_label.config(text=str(path))
+        self._mod_settings_file_label.config(text=f"[{mod_name}] {file_name}")
         self._interactive_editor_visible = False
         self._cleanup_interactive_editor()
 
@@ -2238,7 +2240,7 @@ Trader2 {
 
             if can_interactive:
                 self._mod_settings_status.config(
-                    text=f"Loaded {path.name} — interactive editor active ({len(settings)} setting(s))",
+                    text=f"Loaded [{mod_name}] {path.name} — interactive editor active ({len(settings)} setting(s))",
                     foreground="green",
                 )
                 self._interactive_toggle_btn.config(state=tk.NORMAL)
@@ -2248,7 +2250,7 @@ Trader2 {
             elif settings and len(settings) > self._INTERACTIVE_WIDGET_LIMIT:
                 self._mod_settings_status.config(
                     text=(
-                        f"Loaded {path.name} — {len(settings)} settings exceeds "
+                        f"Loaded [{mod_name}] {path.name} — {len(settings)} settings exceeds "
                         f"interactive limit ({self._INTERACTIVE_WIDGET_LIMIT}); text view only."
                     ),
                     foreground="orange",
@@ -2256,7 +2258,7 @@ Trader2 {
                 self._interactive_toggle_btn.config(state=tk.DISABLED)
             else:
                 self._mod_settings_status.config(
-                    text=f"Loaded {path.name} (text only)", foreground="gray"
+                    text=f"Loaded [{mod_name}] {path.name} (text only)", foreground="gray"
                 )
                 self._interactive_toggle_btn.config(state=tk.DISABLED)
         except tk.TclError as exc:
@@ -5720,6 +5722,8 @@ Requirements:
                 self.process_controller = ProcessController(dayz_path)
 
             port = int(instance["game_port"].get())
+            query_port = int(instance["query_port"].get() or port + 1)
+            steam_port = int(instance["steam_port"].get() or 27016 + int(instance_id) - 1)
             mods = [m.strip() for m in deployed_mods_str.split(';') if m.strip()] if deployed_mods_str else None
             
             process_name = f"server_instance_{instance_id}"
@@ -5744,6 +5748,8 @@ Requirements:
 
             success, msg = self.process_controller.start_server(
                 port=port,
+                query_port=query_port,
+                steam_port=steam_port,
                 mode="normal",
                 map_size=2000,
                 max_players=60,
@@ -5899,6 +5905,8 @@ Requirements:
                         continue
 
                 port = int(instance["game_port"].get())
+                query_port = int(instance["query_port"].get() or port + 1)
+                steam_port = int(instance["steam_port"].get() or 27016 + int(instance_id) - 1)
                 mods = [m.strip() for m in deployed_mods_str.split(';') if m.strip()] if deployed_mods_str else None
 
                 process_name = f"server_instance_{instance_id}"
@@ -5919,6 +5927,8 @@ Requirements:
 
                 success, msg = self.process_controller.start_server(
                     port=port,
+                    query_port=query_port,
+                    steam_port=steam_port,
                     mode="normal",
                     map_size=2000,
                     max_players=60,
@@ -6097,8 +6107,13 @@ Requirements:
             # same Linux user account.
             instance_env = self._build_isolated_instance_env(instance_root)
 
+            query_port = int(pseudo_instance.get("query_port", {}).get() or port + 1)
+            steam_port = int(pseudo_instance.get("steam_port", {}).get() or 27016)
+
             success, msg = self.process_controller.start_server(
                 port=port,
+                query_port=query_port,
+                steam_port=steam_port,
                 mode=mode,
                 map_size=map_size,
                 max_players=max_players,
@@ -6217,8 +6232,15 @@ Requirements:
             if hasattr(self, 'process_controller') and self.process_controller:
                 mode = self.mode_var.get()
                 port = int(self.port_var.get())
-                
-                success, msg = self.process_controller.restart_server(mode=mode, port=port)
+                query_port = port + 1
+                steam_port = 27016
+
+                success, msg = self.process_controller.restart_server(
+                    mode=mode,
+                    port=port,
+                    query_port=query_port,
+                    steam_port=steam_port,
+                )
                 
                 if success:
                     self._single_server_running = True

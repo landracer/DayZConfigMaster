@@ -89,6 +89,8 @@ class ProcessController:
     def start_server(
         self,
         port: int = 2302,
+        query_port: Optional[int] = None,
+        steam_port: Optional[int] = None,
         mode: str = "debug",
         map_size: int = 2000,
         max_players: int = 60,
@@ -107,6 +109,8 @@ class ProcessController:
         
         Args:
             port: Server port (default 2302)
+            query_port: Steam query port (defaults to port+1 if omitted)
+            steam_port: Steam P2P/matchmaking port (auto-bound if omitted)
             mode: debug|normal mode
             map_size: Map dimensions in meters
             max_players: Maximum concurrent players
@@ -148,6 +152,10 @@ class ProcessController:
             
             # Server-specific parameters
             cmd.append(f"-port={port}")
+            if query_port is not None:
+                cmd.append(f"-queryPort={query_port}")
+            if steam_port is not None:
+                cmd.append(f"-steamPort={steam_port}")
             cmd.append(f"-maxPlayers={max_players}")
             cmd.append(f"-mapSize={map_size}")
 
@@ -162,13 +170,7 @@ class ProcessController:
 
             # Mods handling - use semicolon separator for DayZ
             if mods:
-                # Filter out known non-mod directories like CrashReporter
-                filtered_mods = []
-                for mod in mods:
-                    path_lower = str(Path(mod)).lower() if mod else ""
-                    if "crashreporter" not in path_lower and "dayzserver/common" not in path_lower:
-                        filtered_mods.append(mod)
-                mod_paths = ";".join(filtered_mods) if filtered_mods else ""
+                mod_paths = ";".join(mods)
                 cmd.append(f"-mod={mod_paths}")
 
             # Start server process from the instance directory (or DayZ install directory
@@ -637,7 +639,9 @@ class ProcessController:
     def restart_server(
         self,
         mode: Optional[str] = None,
-        port: Optional[int] = None
+        port: Optional[int] = None,
+        query_port: Optional[int] = None,
+        steam_port: Optional[int] = None,
     ) -> Tuple[bool, str]:
         """Restart server with optional parameter changes."""
         # Get current params if not specified
@@ -654,7 +658,12 @@ class ProcessController:
         
         time.sleep(1)  # Brief pause before restart
         
-        return self.start_server(mode=mode, port=port)
+        return self.start_server(
+            mode=mode,
+            port=port,
+            query_port=query_port,
+            steam_port=steam_port,
+        )
     
     def get_status(self) -> Dict[str, Any]:
         """Get current process status."""

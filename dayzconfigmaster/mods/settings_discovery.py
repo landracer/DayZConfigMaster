@@ -44,11 +44,20 @@ def _read_workshop_display_name(folder: Path) -> Optional[str]:
             match = name_re.search(content)
             if match:
                 value = match.group(1).strip()
-                if value and not value.startswith("$"):
+                # Some meta files use Steam localization tokens like "$STR...";
+                # fall back to the folder id in that case.
+                if value and not value.startswith(("$", "#")):
                     return value
         except (OSError, PermissionError):
             pass
     return None
+
+
+def _sanitize_display_name(name: str, fallback: str) -> str:
+    """Return a non-empty display name, falling back to *fallback* if needed."""
+    if name and str(name).strip():
+        return str(name).strip()
+    return fallback.strip() or "Unknown"
 
 
 def _is_workshop_mod_id(name: str) -> bool:
@@ -82,7 +91,9 @@ def detect_mod_settings_files(
                 if not folder.is_dir() or not _is_workshop_mod_id(folder.name):
                     continue
 
-                display_name = _read_workshop_display_name(folder) or folder.name
+                display_name = _sanitize_display_name(
+                    _read_workshop_display_name(folder), folder.name
+                )
                 for path in sorted(folder.rglob("*")):
                     if not path.is_file():
                         continue
@@ -123,7 +134,7 @@ def detect_mod_settings_files(
             if rel.parts[0].lower() == "db":
                 continue
             seen_paths.add(path)
-            folder = rel.parts[0]
+            folder = _sanitize_display_name(rel.parts[0], "Mission")
             rel_path = rel.as_posix()
             results.append((folder, rel_path, path))
 
