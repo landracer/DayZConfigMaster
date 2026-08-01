@@ -1948,7 +1948,7 @@ Trader2 {
             font=("Courier", 10),
             undo=True,
         )
-        self._mod_settings_editor.grid(row=0, column=0, sticky=tk.NSEW)
+        self._mod_settings_editor.pack(fill=tk.BOTH, expand=True)
         self._mod_settings_editor.config(state=tk.DISABLED)
 
         # Interactive editor container (created on demand).
@@ -2441,7 +2441,7 @@ Trader2 {
         """Show the raw text editor and hide the interactive editor."""
         self._interactive_editor_visible = False
         self._cleanup_interactive_editor()
-        self._mod_settings_editor.grid()
+        self._mod_settings_editor.pack(fill=tk.BOTH, expand=True)
         if hasattr(self, "_interactive_toggle_btn"):
             self._interactive_toggle_btn.config(text="Interactive View")
         if path:
@@ -2473,11 +2473,11 @@ Trader2 {
     def _show_interactive_editor(self, path: Optional[Path], settings: List[SettingField]) -> None:
         """Build and display the interactive widget editor."""
         self._interactive_editor_visible = True
-        self._mod_settings_editor.grid_remove()
+        self._mod_settings_editor.pack_forget()
 
         try:
             self._interactive_editor_frame = ttk.Frame(self._mod_settings_editor.master)
-            self._interactive_editor_frame.grid(row=0, column=0, sticky=tk.NSEW)
+            self._interactive_editor_frame.pack(fill=tk.BOTH, expand=True)
             self._interactive_editor_frame.columnconfigure(0, weight=1)
             self._interactive_editor_frame.rowconfigure(0, weight=1)
 
