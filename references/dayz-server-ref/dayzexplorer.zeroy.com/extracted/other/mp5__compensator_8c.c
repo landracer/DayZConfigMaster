@@ -1,0 +1,20 @@
+// ======================================================================
+// File: mp5__compensator_8c_source.html
+// Category: other
+// ======================================================================
+
+class MP5_Compensator extends ItemSuppressor
+{
+override bool CanPutAsAttachment( EntityAI parent )
+{
+if (!super.CanPutAsAttachment(parent))
+return false;
+if (parent.IsSlotReserved(InventorySlots.GetSlotIdFromString("pistolMuzzle")))
+return false;
+if ( !parent.FindAttachmentBySlotName("pistolMuzzle") )
+{
+return true;
+}
+return false;
+}
+}

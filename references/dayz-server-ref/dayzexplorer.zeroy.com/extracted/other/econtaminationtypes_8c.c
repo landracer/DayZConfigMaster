@@ -1,0 +1,12 @@
+// ======================================================================
+// File: econtaminationtypes_8c_source.html
+// Category: other
+// ======================================================================
+
+enum EContaminationTypes
+{
+ITEM_BADGE_CONTAMINATED = 1,
+ITEM_BADGE_POISONED = 2,
+ITEM_BADGE_NERVE_GAS = 4,
+ITEM_BADGE_DIRTY = 8,
+}

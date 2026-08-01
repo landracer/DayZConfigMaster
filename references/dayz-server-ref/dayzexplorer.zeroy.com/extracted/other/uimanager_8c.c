@@ -1,0 +1,185 @@
+// ======================================================================
+// File: uimanager_8c_source.html
+// Category: other
+// ======================================================================
+
+class UIManager
+{
+proto native UIScriptedMenu EnterScriptedMenu(int id, UIMenuPanel parent);
+proto native UIScriptedMenu CreateScriptedMenu(int id, UIMenuPanel parent);
+proto native void EnterServerBrowser(UIMenuPanel parentMenu);
+proto native UIScriptedMenu ShowScriptedMenu(UIScriptedMenu menu, UIMenuPanel parent);
+proto native void HideScriptedMenu(UIScriptedMenu menu);
+proto native Widget GetWidgetUnderCursor();
+proto native bool IsDialogVisible();
+proto native bool IsDialogHiding();
+proto native bool IsModalVisible();
+proto native void CloseSpecificDialog(int id);
+proto native void CloseDialog();
+proto native void HideDialog();
+proto native void ShowDialog(string caption, string text, int id, int butts /*DBT_*/, int def/*DBB_*/, int type /*DMT_*/, UIScriptedMenu handler);
+proto native bool ShowCursor(bool visible);
+proto native bool IsCursorVisible();
+proto native bool IsDialogQueued();
+proto native bool ShowQueuedDialog();
+proto native int GetLoginQueuePosition();
+proto native bool ScreenFadeVisible();
+proto native void ScreenFadeIn(float duration, string text, int backgroundColor, int textColor);
+proto native void ScreenFadeOut(float duration);
+proto native bool IsScaledMode();
+proto native void SetScaledMode(bool enabled);
+proto native UIScriptedMenu GetMenu();
+bool Back()
+{
+if (IsDialogVisible() == false)
+{
+UIMenuPanel menu = GetMenu();
+if (menu)
+{
+menu.Close();
+return true;
+}
+}
+return false;
+}
+bool CloseAll()
+{
+UIMenuPanel menu = GetMenu();
+while (menu)
+{
+if (menu.GetParentMenu())
+{
+menu = menu.GetParentMenu();
+}
+else
+{
+menu.Close();
+return true;
+}
+}
+return false;
+}
+bool CloseAllSubmenus()
+{
+UIMenuPanel menu = GetMenu();
+while (menu && menu.GetParentMenu() && menu.GetParentMenu().GetParentMenu())
+{
+menu = menu.GetParentMenu();
+}
+if (menu && menu.GetParentMenu())
+{
+menu.Close();
+return true;
+}
+return false;
+}
+bool CloseMenu(int id)
+{
+UIMenuPanel menu = GetMenu();
+while (menu)
+{
+if (menu.GetID() == id)
+{
+menu.Close();
+return true;
+}
+menu = menu.GetParentMenu();
+}
+return false;
+}
+bool HideMenu(int id)
+{
+UIScriptedMenu menu = GetMenu();
+while (menu)
+{
+if (menu.GetID() == id)
+{
+HideScriptedMenu( menu );
+return true;
+}
+menu = UIScriptedMenu.Cast( menu.GetParentMenu() );
+}
+return false;
+}
+bool IsMenuOpen(int id)
+{
+return FindMenu(id) != null;
+}
+UIScriptedMenu FindMenu(int id)
+{
+UIScriptedMenu menu = GetMenu();
+while (menu)
+{
+if (menu.GetID() == id)
+{
+return menu;
+}
+menu = UIScriptedMenu.Cast( menu.GetParentMenu() );
+}
+return NULL;
+}
+//Window management
+void OpenWindow( int id )
+{
+UIScriptedWindow window = UIScriptedWindow.GetWindow( id );
+//if window is already opened, close it
+if ( window )
+{
+CloseWindow( id );
+return;
+}
+//create new window
+switch( id )
+{
+case GUI_WINDOW_MISSION_LOADER:
+window = g_Game.GetMission().CreateScriptedWindow( id );
+break;
+default: {};
+}
+if ( window )
+{
+window.Init();
+//add to active windows
+UIScriptedWindow.AddToActiveWindows( id, window );
+}
+}
+void CloseWindow( int id )
+{
+UIScriptedWindow window = UIScriptedWindow.GetWindow( id );
+if ( window )
+{
+UIScriptedWindow.RemoveFromActiveWindows( id );
+window.HideWindow();
+//delete window;
+g_Game.GetCallQueue(CALL_CATEGORY_SYSTEM).Call(this.DeleteWindow, window );
+/*
+wtf? leak
+Timer delete_timer = new Timer ( CALL_CATEGORY_SYSTEM );
+Param1<UIScriptedWindow> params = new Param1<UIScriptedWindow>( window );
+delete_timer.Run( 0.5, this, "DeleteWindow", params, false );*/
+}
+}
+void DeleteWindow( UIScriptedWindow window )
+{
+delete window;
+}
+bool IsWindowOpened( int id )
+{
+if ( UIScriptedWindow.GetWindow( id ) )
+{
+return true;
+}
+return false;
+}
+void ShowUICursor( bool visible )
+{
+g_Game.SetMouseCursorDesiredVisibility(visible);
+}
+};
+string GetRandomLoadingBackground()
+{
+const string images[] = {"{655A1BF79F5B291}Gui/textures/loading_screens/loading_screen_1_co.edds", "{84BE5F7442BD4B}Gui/textures/loading_screens/loading_screen_2_co.edds"};
+Math.Randomize(-1);
+int index = Math.RandomInt(0, 100) % 2;
+return images[index];
+}

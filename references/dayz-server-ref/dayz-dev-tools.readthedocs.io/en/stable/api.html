@@ -1,0 +1,1088 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" />
+  <meta name="readthedocs-addons-api-version" content="1"><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Reference &mdash; dayz-dev-tools  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css%3Fv=b86133f3.css" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css%3Fv=9edc463e.css" />
+      <link rel="stylesheet" type="text/css" href="_static/css/rtd_sphinx_search.min.css" />
+
+  
+      <script src="_static/jquery.js%3Fv=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js%3Fv=2cd50e6c"></script>
+      <script src="_static/documentation_options.js%3Fv=7f41d439"></script>
+      <script src="_static/doctools.js%3Fv=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js%3Fv=6ffebe34"></script>
+      <script src="_static/js/rtd_search_config.js"></script>
+      <script src="_static/js/rtd_sphinx_search.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <script src="_static/js/versions.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Commands" href="commands.html" /> 
+<script async type="text/javascript" src="../../_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="dayz-dev-tools" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/api.html" /><meta name="readthedocs-http-status" content="200" /></head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            dayz-dev-tools
+          </a>
+              <div class="switch-menus">
+                <div class="version-switch"></div>
+                <div class="language-switch"></div>
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="commands.html">Commands</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="api.html#">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-dayz_dev_tools.extract_pbo">Extracting PBO Content</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.extract_pbo.extract_pbo"><code class="docutils literal notranslate"><span class="pre">extract_pbo()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-dayz_dev_tools.guid">DayZ GUIDs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.guid.guid_for_steamid64"><code class="docutils literal notranslate"><span class="pre">guid_for_steamid64()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-dayz_dev_tools.keys">Public Key Management</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.keys.copy_keys"><code class="docutils literal notranslate"><span class="pre">copy_keys()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-dayz_dev_tools.launch_settings">Launch Settings</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings"><code class="docutils literal notranslate"><span class="pre">LaunchSettings</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.__init__"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.add_mod"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.add_mod()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.add_parameter"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.add_parameter()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.add_server_mod"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.add_server_mod()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.config"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.config()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.directory"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.directory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.executable"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.executable()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.load_bundle"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.load_bundle()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.mission_directory"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.mission_directory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.mods"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.mods()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.parameters"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.parameters()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.profile_directory"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.profile_directory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.server_mods"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.server_mods()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.set_config"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.set_config()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.set_directory"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.set_directory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.set_executable"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.set_executable()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.set_mission_directory"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.set_mission_directory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.set_profile_directory"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.set_profile_directory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.set_workshop_directory"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.set_workshop_directory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.workshop_directory"><code class="docutils literal notranslate"><span class="pre">LaunchSettings.workshop_directory()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-dayz_dev_tools.list_pbo">Listing PBO Content</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.list_pbo.list_pbo"><code class="docutils literal notranslate"><span class="pre">list_pbo()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-dayz_dev_tools.pbo_file">PBO File</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile"><code class="docutils literal notranslate"><span class="pre">PBOFile</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.__init__"><code class="docutils literal notranslate"><span class="pre">PBOFile.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.data_size"><code class="docutils literal notranslate"><span class="pre">PBOFile.data_size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.deobfuscated_filename"><code class="docutils literal notranslate"><span class="pre">PBOFile.deobfuscated_filename()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.deobfuscated_split"><code class="docutils literal notranslate"><span class="pre">PBOFile.deobfuscated_split()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.filename"><code class="docutils literal notranslate"><span class="pre">PBOFile.filename</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.invalid"><code class="docutils literal notranslate"><span class="pre">PBOFile.invalid()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.normalized_filename"><code class="docutils literal notranslate"><span class="pre">PBOFile.normalized_filename()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.obfuscated"><code class="docutils literal notranslate"><span class="pre">PBOFile.obfuscated()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.split_filename"><code class="docutils literal notranslate"><span class="pre">PBOFile.split_filename()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.time_stamp"><code class="docutils literal notranslate"><span class="pre">PBOFile.time_stamp</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.type"><code class="docutils literal notranslate"><span class="pre">PBOFile.type()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.unpack"><code class="docutils literal notranslate"><span class="pre">PBOFile.unpack()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.unpacked_size"><code class="docutils literal notranslate"><span class="pre">PBOFile.unpacked_size()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-dayz_dev_tools.pbo_reader">PBO Reader</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_reader.PBOReader"><code class="docutils literal notranslate"><span class="pre">PBOReader</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_reader.PBOReader.__init__"><code class="docutils literal notranslate"><span class="pre">PBOReader.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_reader.PBOReader.file"><code class="docutils literal notranslate"><span class="pre">PBOReader.file()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_reader.PBOReader.files"><code class="docutils literal notranslate"><span class="pre">PBOReader.files()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_reader.PBOReader.headers"><code class="docutils literal notranslate"><span class="pre">PBOReader.headers()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_reader.PBOReader.prefix"><code class="docutils literal notranslate"><span class="pre">PBOReader.prefix()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-dayz_dev_tools.pbo_writer">PBO Writer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_writer.PBOWriter"><code class="docutils literal notranslate"><span class="pre">PBOWriter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_writer.PBOWriter.__init__"><code class="docutils literal notranslate"><span class="pre">PBOWriter.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_writer.PBOWriter.add_file"><code class="docutils literal notranslate"><span class="pre">PBOWriter.add_file()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_writer.PBOWriter.add_header"><code class="docutils literal notranslate"><span class="pre">PBOWriter.add_header()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_writer.PBOWriter.write"><code class="docutils literal notranslate"><span class="pre">PBOWriter.write()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-dayz_dev_tools.script_logs">Script Logs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.script_logs.newest"><code class="docutils literal notranslate"><span class="pre">newest()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.script_logs.stream"><code class="docutils literal notranslate"><span class="pre">stream()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.script_logs.wait_for_new"><code class="docutils literal notranslate"><span class="pre">wait_for_new()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html#module-dayz_dev_tools.server_config">Server Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.BundleConfig"><code class="docutils literal notranslate"><span class="pre">BundleConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.BundleConfig.__init__"><code class="docutils literal notranslate"><span class="pre">BundleConfig.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.BundleConfig.config"><code class="docutils literal notranslate"><span class="pre">BundleConfig.config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.BundleConfig.directory"><code class="docutils literal notranslate"><span class="pre">BundleConfig.directory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.BundleConfig.executable"><code class="docutils literal notranslate"><span class="pre">BundleConfig.executable</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.BundleConfig.mission_directory"><code class="docutils literal notranslate"><span class="pre">BundleConfig.mission_directory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.BundleConfig.mods"><code class="docutils literal notranslate"><span class="pre">BundleConfig.mods</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.BundleConfig.parameters"><code class="docutils literal notranslate"><span class="pre">BundleConfig.parameters</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.BundleConfig.profile_directory"><code class="docutils literal notranslate"><span class="pre">BundleConfig.profile_directory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.BundleConfig.server_mods"><code class="docutils literal notranslate"><span class="pre">BundleConfig.server_mods</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.BundleConfig.workshop_directory"><code class="docutils literal notranslate"><span class="pre">BundleConfig.workshop_directory</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig"><code class="docutils literal notranslate"><span class="pre">ServerConfig</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig.__init__"><code class="docutils literal notranslate"><span class="pre">ServerConfig.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig.bundle_path"><code class="docutils literal notranslate"><span class="pre">ServerConfig.bundle_path</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig.bundles"><code class="docutils literal notranslate"><span class="pre">ServerConfig.bundles</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig.config"><code class="docutils literal notranslate"><span class="pre">ServerConfig.config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig.directory"><code class="docutils literal notranslate"><span class="pre">ServerConfig.directory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig.executable"><code class="docutils literal notranslate"><span class="pre">ServerConfig.executable</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig.mission_directory"><code class="docutils literal notranslate"><span class="pre">ServerConfig.mission_directory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig.parameters"><code class="docutils literal notranslate"><span class="pre">ServerConfig.parameters</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig.profile_directory"><code class="docutils literal notranslate"><span class="pre">ServerConfig.profile_directory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig.workshop_directory"><code class="docutils literal notranslate"><span class="pre">ServerConfig.workshop_directory</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.load"><code class="docutils literal notranslate"><span class="pre">load()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">dayz-dev-tools</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">API Reference</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="api-reference">
+<h1>API Reference<a class="headerlink" href="api.html#api-reference" title="Link to this heading"></a></h1>
+<p>The APIs documented in this section are the public interface of the
+<code class="docutils literal notranslate"><span class="pre">dayz-dev-tools</span></code> package. All other functions and classes are considered
+private and may change without notice.</p>
+<section id="module-dayz_dev_tools.extract_pbo">
+<span id="extracting-pbo-content"></span><h2>Extracting PBO Content<a class="headerlink" href="api.html#module-dayz_dev_tools.extract_pbo" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="dayz_dev_tools.extract_pbo.extract_pbo">
+<span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.extract_pbo.</span></span><span class="sig-name descname"><span class="pre">extract_pbo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reader</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_reader.PBOReader" title="dayz_dev_tools.pbo_reader.PBOReader"><span class="pre">PBOReader</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">files_to_extract</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deobfuscate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfgconvert</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pattern</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/extract_pbo.html#extract_pbo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.extract_pbo.extract_pbo" title="Link to this definition"></a></dt>
+<dd><p>Extract one or more files contained in a PBO archive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>reader</cite>: A <a class="reference internal" href="api.html#dayz_dev_tools.pbo_reader.PBOReader" title="dayz_dev_tools.pbo_reader.PBOReader"><code class="xref py py-class docutils literal notranslate"><span class="pre">PBOReader</span></code></a> instance representing the PBO
+archive containing the file(s) to be extracted.</p></li>
+<li><p><cite>files_to_extract</cite>: A list of fully-qualified paths of the files to be extracted.</p></li>
+<li><p><cite>verbose</cite>: When <cite>True</cite>, print the paths of the files being extracted to stdout.</p></li>
+<li><p><cite>deobfuscate</cite>: When <cite>True</cite>, <strong>attempt</strong> to deobfuscate obfuscated script files.</p></li>
+<li><p><cite>cfgconvert</cite>: Location of the DayZ Tools CfgConvert.exe binary, or None if binarized
+configs should not be converted.</p></li>
+<li><p><cite>pattern</cite>: Only extract filenames matching this glob pattern, or None if all files should
+be extracted.</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Deobfuscation may not always work, as obfuscation techniques may evolve over time.</p>
+</div>
+</dd></dl>
+
+</section>
+<section id="module-dayz_dev_tools.guid">
+<span id="dayz-guids"></span><h2>DayZ GUIDs<a class="headerlink" href="api.html#module-dayz_dev_tools.guid" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="dayz_dev_tools.guid.guid_for_steamid64">
+<span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.guid.</span></span><span class="sig-name descname"><span class="pre">guid_for_steamid64</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">steamid64</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/guid.html#guid_for_steamid64"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.guid.guid_for_steamid64" title="Link to this definition"></a></dt>
+<dd><p>Convert a SteamID64 identifier to a DayZ GUID identifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>steamid64</cite>: A 64-bit SteamID used to uniquely identify a Steam account.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The DayZ GUID corresponding to the given 64-bit SteamID.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-dayz_dev_tools.keys">
+<span id="public-key-management"></span><h2>Public Key Management<a class="headerlink" href="api.html#module-dayz_dev_tools.keys" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="dayz_dev_tools.keys.copy_keys">
+<span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.keys.</span></span><span class="sig-name descname"><span class="pre">copy_keys</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">destination</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/keys.html#copy_keys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.keys.copy_keys" title="Link to this definition"></a></dt>
+<dd><p>Recursively search for <cite>*.bikey</cite> (public key) files in one directory and copy them to
+another directory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>source</cite>: The source directory to be searched for <code class="docutils literal notranslate"><span class="pre">*.bikey</span></code> files.</p></li>
+<li><p><cite>destination</cite>: The destination directory where found <code class="docutils literal notranslate"><span class="pre">*.bikey</span></code> files are to be copied to.
+This directory will be created if it does not already exist.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-dayz_dev_tools.launch_settings">
+<span id="launch-settings"></span><h2>Launch Settings<a class="headerlink" href="api.html#module-dayz_dev_tools.launch_settings" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.launch_settings.</span></span><span class="sig-name descname"><span class="pre">LaunchSettings</span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings" title="Link to this definition"></a></dt>
+<dd><p>Settings that determine what command line parameters to pass when running DayZ Server.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig" title="dayz_dev_tools.server_config.ServerConfig"><span class="pre">ServerConfig</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.__init__" title="Link to this definition"></a></dt>
+<dd><p>Create a <a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings" title="dayz_dev_tools.launch_settings.LaunchSettings"><code class="xref py py-class docutils literal notranslate"><span class="pre">LaunchSettings</span></code></a> from a
+<a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig" title="dayz_dev_tools.server_config.ServerConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">ServerConfig</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>config</cite>: A <a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig" title="dayz_dev_tools.server_config.ServerConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">ServerConfig</span></code></a> instance returned by
+<a class="reference internal" href="api.html#dayz_dev_tools.server_config.load" title="dayz_dev_tools.server_config.load"><code class="xref py py-meth docutils literal notranslate"><span class="pre">dayz_dev_tools.server_config.load()</span></code></a>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.add_mod">
+<span class="sig-name descname"><span class="pre">add_mod</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.add_mod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.add_mod" title="Link to this definition"></a></dt>
+<dd><p>Add a mod to be loaded.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>name</cite>: The name of the mod to load. If the name starts with <code class="docutils literal notranslate"><span class="pre">&#64;</span></code>, it will be loaded
+from the DayZ workshop directory (see <a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.workshop_directory" title="dayz_dev_tools.launch_settings.LaunchSettings.workshop_directory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">LaunchSettings.workshop_directory()</span></code></a>), else
+the name is expected to be the name of the directory containing the mod.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.add_parameter">
+<span class="sig-name descname"><span class="pre">add_parameter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.add_parameter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.add_parameter" title="Link to this definition"></a></dt>
+<dd><p>Add extra parameter to pass on the DayZ Server command line.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>param</cite>: The parameter to pass on the DayZ Server command line.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.add_server_mod">
+<span class="sig-name descname"><span class="pre">add_server_mod</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.add_server_mod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.add_server_mod" title="Link to this definition"></a></dt>
+<dd><p>Add a <em>server</em> mod to be loaded.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>name</cite>: The name of the server mod to load. If the name starts with <code class="docutils literal notranslate"><span class="pre">&#64;</span></code>, it will be
+loaded from the DayZ workshop directory (see <a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.workshop_directory" title="dayz_dev_tools.launch_settings.LaunchSettings.workshop_directory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">LaunchSettings.workshop_directory()</span></code></a>),
+else the name is expected to be the name of the directory containing the server mod.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.config">
+<span class="sig-name descname"><span class="pre">config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.config" title="Link to this definition"></a></dt>
+<dd><p>Get the DayZ Server config filename, usually <code class="docutils literal notranslate"><span class="pre">serverDZ.cfg</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The DayZ Server config filename.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.directory">
+<span class="sig-name descname"><span class="pre">directory</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.directory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.directory" title="Link to this definition"></a></dt>
+<dd><p>Get the directory to switch to before running DayZ Server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The directory to switch to or <code class="docutils literal notranslate"><span class="pre">None</span></code> if it hasn’t been set.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.executable">
+<span class="sig-name descname"><span class="pre">executable</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.executable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.executable" title="Link to this definition"></a></dt>
+<dd><p>Get the DayZ Server executable filename, usually <code class="docutils literal notranslate"><span class="pre">.\DayZServer_x64.exe</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The DayZ Server executable filename.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.load_bundle">
+<span class="sig-name descname"><span class="pre">load_bundle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.load_bundle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.load_bundle" title="Link to this definition"></a></dt>
+<dd><p>Load a bundle to configure DayZ Server launch settings.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>name</cite>: The name of the bundle to load.</p></li>
+</ul>
+</dd>
+</dl>
+<p>This method will first try to find the bundle in the settings TOML file (e.g.
+<code class="docutils literal notranslate"><span class="pre">server.toml</span></code>). If the bundle name does not exist there, then it will then try to find
+the bundle in the bundles Python module (e.g. <code class="docutils literal notranslate"><span class="pre">bundles.py</span></code>).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.mission_directory">
+<span class="sig-name descname"><span class="pre">mission_directory</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.mission_directory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.mission_directory" title="Link to this definition"></a></dt>
+<dd><p>Get the DayZ Server mission directory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The DayZ Server mission directory, or <code class="docutils literal notranslate"><span class="pre">None</span></code> if the mission directory hasn’t been set.</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The mission directory is often configured in the DayZ Server config file (e.g.
+<code class="docutils literal notranslate"><span class="pre">serverDZ.cfg</span></code>). See also <a class="reference internal" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.config" title="dayz_dev_tools.launch_settings.LaunchSettings.config"><code class="xref py py-meth docutils literal notranslate"><span class="pre">LaunchSettings.config()</span></code></a>.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.mods">
+<span class="sig-name descname"><span class="pre">mods</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.mods"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.mods" title="Link to this definition"></a></dt>
+<dd><p>Get the list of mods to load.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The list of mods to load.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.parameters">
+<span class="sig-name descname"><span class="pre">parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.parameters" title="Link to this definition"></a></dt>
+<dd><p>Get extra command line parameters to pass to DayZ Server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The list of extra command line parameters to pass to DayZ Server.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.profile_directory">
+<span class="sig-name descname"><span class="pre">profile_directory</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.profile_directory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.profile_directory" title="Link to this definition"></a></dt>
+<dd><p>Get the DayZ Server profile directory name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The DayZ Server profile directory name, or <code class="docutils literal notranslate"><span class="pre">None</span></code> if it hasn’t been set.</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When the profile directory is unspecified, DayZ Server will usually use
+<code class="docutils literal notranslate"><span class="pre">%LOCALAPPDATA%\DayZ</span></code> as the profile directory.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.server_mods">
+<span class="sig-name descname"><span class="pre">server_mods</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.server_mods"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.server_mods" title="Link to this definition"></a></dt>
+<dd><p>Get the list of <em>server</em> mods to load.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The list of server mods to load.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.set_config">
+<span class="sig-name descname"><span class="pre">set_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.set_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.set_config" title="Link to this definition"></a></dt>
+<dd><p>Set the DayZ Server config filename.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>path</cite>: The DayZ Server config filename.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.set_directory">
+<span class="sig-name descname"><span class="pre">set_directory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.set_directory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.set_directory" title="Link to this definition"></a></dt>
+<dd><p>Set the directory to switch to before running DayZ Server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>path</cite>: The directory to switch to before running DayZ Server.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.set_executable">
+<span class="sig-name descname"><span class="pre">set_executable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.set_executable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.set_executable" title="Link to this definition"></a></dt>
+<dd><p>Set the DayZ Server executable filename.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>path</cite>: The DayZ Server executable filename.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.set_mission_directory">
+<span class="sig-name descname"><span class="pre">set_mission_directory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.set_mission_directory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.set_mission_directory" title="Link to this definition"></a></dt>
+<dd><p>Set the DayZ Server mission directory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>name</cite>: The DayZ Server mission directory name.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.set_profile_directory">
+<span class="sig-name descname"><span class="pre">set_profile_directory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.set_profile_directory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.set_profile_directory" title="Link to this definition"></a></dt>
+<dd><p>Set the DayZ Server profile directory name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>path</cite>: The DayZ Server profile directory name.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.set_workshop_directory">
+<span class="sig-name descname"><span class="pre">set_workshop_directory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.set_workshop_directory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.set_workshop_directory" title="Link to this definition"></a></dt>
+<dd><p>Set the DayZ (client) workshop directory name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>path</cite>: The DayZ workshop directory name.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.launch_settings.LaunchSettings.workshop_directory">
+<span class="sig-name descname"><span class="pre">workshop_directory</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/launch_settings.html#LaunchSettings.workshop_directory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.launch_settings.LaunchSettings.workshop_directory" title="Link to this definition"></a></dt>
+<dd><p>Get the DayZ (client) workshop directory name. This should normally be set to
+<code class="docutils literal notranslate"><span class="pre">&lt;DayZ</span> <span class="pre">Installation</span> <span class="pre">Directory&gt;\!Workshop</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The DayZ workshop directory name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-dayz_dev_tools.list_pbo">
+<span id="listing-pbo-content"></span><h2>Listing PBO Content<a class="headerlink" href="api.html#module-dayz_dev_tools.list_pbo" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="dayz_dev_tools.list_pbo.list_pbo">
+<span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.list_pbo.</span></span><span class="sig-name descname"><span class="pre">list_pbo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reader</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_reader.PBOReader" title="dayz_dev_tools.pbo_reader.PBOReader"><span class="pre">PBOReader</span></a></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/list_pbo.html#list_pbo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.list_pbo.list_pbo" title="Link to this definition"></a></dt>
+<dd><p>Print the contents of a PBO archive to stdout in tabular format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>reader</cite>: A <a class="reference internal" href="api.html#dayz_dev_tools.pbo_reader.PBOReader" title="dayz_dev_tools.pbo_reader.PBOReader"><code class="xref py py-class docutils literal notranslate"><span class="pre">PBOReader</span></code></a> instance representing the PBO
+archive to list.</p></li>
+<li><p><cite>verbose</cite>: When <cite>True</cite>, additional detail will be printed.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-dayz_dev_tools.pbo_file">
+<span id="pbo-file"></span><h2>PBO File<a class="headerlink" href="api.html#module-dayz_dev_tools.pbo_file" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.pbo_file.</span></span><span class="sig-name descname"><span class="pre">PBOFile</span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_file.html#PBOFile"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile" title="Link to this definition"></a></dt>
+<dd><p>Interface for accessing a file contained within a PBO archive. Instances should be obtained
+using <a class="reference internal" href="api.html#dayz_dev_tools.pbo_reader.PBOReader.file" title="dayz_dev_tools.pbo_reader.PBOReader.file"><code class="xref py py-meth docutils literal notranslate"><span class="pre">dayz_dev_tools.pbo_reader.PBOReader.file()</span></code></a>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bytes</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bytes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mime_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bytes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">original_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reserved</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_stamp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">content_reader</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">PBOFileReader</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile.data_size">
+<span class="sig-name descname"><span class="pre">data_size</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile.data_size" title="Link to this definition"></a></dt>
+<dd><p>The size of the file in the PBO archive</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile.deobfuscated_filename">
+<span class="sig-name descname"><span class="pre">deobfuscated_filename</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_file.html#PBOFile.deobfuscated_filename"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile.deobfuscated_filename" title="Link to this definition"></a></dt>
+<dd><p>Get the deobfuscated version of the file’s name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>index</cite>: A number to uniquely identify the deobfuscated file.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A deobfuscated version of the file’s name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile.deobfuscated_split">
+<span class="sig-name descname"><span class="pre">deobfuscated_split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">bytes</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_file.html#PBOFile.deobfuscated_split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile.deobfuscated_split" title="Link to this definition"></a></dt>
+<dd><p>Get the file’s deobfuscated name as a <code class="docutils literal notranslate"><span class="pre">list</span></code>, where each element in the list
+represents a component of the file’s path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>index</cite>: A number to uniquely identify the deobfuscated file.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of deobfuscated path components.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile.filename">
+<span class="sig-name descname"><span class="pre">filename</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bytes</span></span><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile.filename" title="Link to this definition"></a></dt>
+<dd><p>The raw name of the file</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile.invalid">
+<span class="sig-name descname"><span class="pre">invalid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_file.html#PBOFile.invalid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile.invalid" title="Link to this definition"></a></dt>
+<dd><p>Returns True if filename is not a valid Windows filename.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>True if filename is not a valid Windows filename, or False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile.normalized_filename">
+<span class="sig-name descname"><span class="pre">normalized_filename</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_file.html#PBOFile.normalized_filename"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile.normalized_filename" title="Link to this definition"></a></dt>
+<dd><p>Get the normalized version of the file’s name.</p>
+<p>The resulting filename will contain the local OS’s native directory separator character and
+any bytes representing illegal UTF-8 will be replaced.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A normalized version of the file’s name.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile.obfuscated">
+<span class="sig-name descname"><span class="pre">obfuscated</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_file.html#PBOFile.obfuscated"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile.obfuscated" title="Link to this definition"></a></dt>
+<dd><p>Returns True if filename appears to be an obfuscated script file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>True if filename appears to be an obfuscated script, or False otherwise.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile.split_filename">
+<span class="sig-name descname"><span class="pre">split_filename</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">bytes</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_file.html#PBOFile.split_filename"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile.split_filename" title="Link to this definition"></a></dt>
+<dd><p>Get the file’s name as a <code class="docutils literal notranslate"><span class="pre">list</span></code>, where each element in the list represents a component
+of the file’s path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A list of path components.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile.time_stamp">
+<span class="sig-name descname"><span class="pre">time_stamp</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile.time_stamp" title="Link to this definition"></a></dt>
+<dd><p>The file’s creation or modification time as a Unix timestamp</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile.type">
+<span class="sig-name descname"><span class="pre">type</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_file.html#PBOFile.type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile.type" title="Link to this definition"></a></dt>
+<dd><p>Get the type of the file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A 4-character string representing the file type.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile.unpack">
+<span class="sig-name descname"><span class="pre">unpack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BinaryIO</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_file.html#PBOFile.unpack"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile.unpack" title="Link to this definition"></a></dt>
+<dd><p>Write the contents of the file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>output_file</cite>: A binary file-like object where the contents are to be written.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_file.PBOFile.unpacked_size">
+<span class="sig-name descname"><span class="pre">unpacked_size</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_file.html#PBOFile.unpacked_size"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_file.PBOFile.unpacked_size" title="Link to this definition"></a></dt>
+<dd><p>Get the original size of the file. If the file is compressed, this will be different
+from the <a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.data_size" title="dayz_dev_tools.pbo_file.PBOFile.data_size"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">PBOFile.data_size</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The original size of the file.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-dayz_dev_tools.pbo_reader">
+<span id="pbo-reader"></span><h2>PBO Reader<a class="headerlink" href="api.html#module-dayz_dev_tools.pbo_reader" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_reader.PBOReader">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.pbo_reader.</span></span><span class="sig-name descname"><span class="pre">PBOReader</span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_reader.html#PBOReader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_reader.PBOReader" title="Link to this definition"></a></dt>
+<dd><p>Interface for reading a PBO archive.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_reader.PBOReader.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BinaryIO</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_reader.html#PBOReader.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_reader.PBOReader.__init__" title="Link to this definition"></a></dt>
+<dd><p>Create a new <a class="reference internal" href="api.html#dayz_dev_tools.pbo_reader.PBOReader" title="dayz_dev_tools.pbo_reader.PBOReader"><code class="xref py py-class docutils literal notranslate"><span class="pre">PBOReader</span></code></a> instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>file</cite>: A binary file-like object providing PBO archive contents.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_reader.PBOReader.file">
+<span class="sig-name descname"><span class="pre">file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AnyStr</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile" title="dayz_dev_tools.pbo_file.PBOFile"><span class="pre">PBOFile</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_reader.html#PBOReader.file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_reader.PBOReader.file" title="Link to this definition"></a></dt>
+<dd><p>Get a file contained in the PBO archive, by name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>filename</cite>: A <code class="docutils literal notranslate"><span class="pre">str</span></code> or <code class="docutils literal notranslate"><span class="pre">bytes</span></code> containing the filename of the file to be retrieved.
+If a <code class="docutils literal notranslate"><span class="pre">str</span></code>, the filename is matched case-insensitively by the normalized filename in
+the PBO (see <a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.normalized_filename" title="dayz_dev_tools.pbo_file.PBOFile.normalized_filename"><code class="xref py py-meth docutils literal notranslate"><span class="pre">dayz_dev_tools.pbo_file.PBOFile.normalized_filename()</span></code></a>). If a
+<code class="docutils literal notranslate"><span class="pre">bytes</span></code>, the filename is matched case-insensitively by the raw filename (see
+<a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile.filename" title="dayz_dev_tools.pbo_file.PBOFile.filename"><code class="xref any py py-attr docutils literal notranslate"><span class="pre">dayz_dev_tools.pbo_file.PBOFile.filename</span></code></a>).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of <a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile" title="dayz_dev_tools.pbo_file.PBOFile"><code class="xref py py-class docutils literal notranslate"><span class="pre">dayz_dev_tools.pbo_file.PBOFile</span></code></a> representing the retrieved file.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_reader.PBOReader.files">
+<span class="sig-name descname"><span class="pre">files</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile" title="dayz_dev_tools.pbo_file.PBOFile"><span class="pre">PBOFile</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_reader.html#PBOReader.files"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_reader.PBOReader.files" title="Link to this definition"></a></dt>
+<dd><p>Get the list of files contained in the PBO archive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A list of <a class="reference internal" href="api.html#dayz_dev_tools.pbo_file.PBOFile" title="dayz_dev_tools.pbo_file.PBOFile"><code class="xref py py-class docutils literal notranslate"><span class="pre">PBOFile</span></code></a> instances representing the files
+contained in the PBO archive.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_reader.PBOReader.headers">
+<span class="sig-name descname"><span class="pre">headers</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">bytes</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">bytes</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_reader.html#PBOReader.headers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_reader.PBOReader.headers" title="Link to this definition"></a></dt>
+<dd><p>Get the PBO archive headers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A list of tuples containing the header names and values.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_reader.PBOReader.prefix">
+<span class="sig-name descname"><span class="pre">prefix</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bytes</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_reader.html#PBOReader.prefix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_reader.PBOReader.prefix" title="Link to this definition"></a></dt>
+<dd><p>Get the PBO archive prefix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The PBO archive prefix, or <code class="docutils literal notranslate"><span class="pre">None</span></code> if the PBO archive does not have a <code class="docutils literal notranslate"><span class="pre">prefix</span></code> header.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-dayz_dev_tools.pbo_writer">
+<span id="pbo-writer"></span><h2>PBO Writer<a class="headerlink" href="api.html#module-dayz_dev_tools.pbo_writer" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_writer.PBOWriter">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.pbo_writer.</span></span><span class="sig-name descname"><span class="pre">PBOWriter</span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_writer.html#PBOWriter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_writer.PBOWriter" title="Link to this definition"></a></dt>
+<dd><p>Interface for writing a PBO archive.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_writer.PBOWriter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfgconvert</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_writer.html#PBOWriter.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_writer.PBOWriter.__init__" title="Link to this definition"></a></dt>
+<dd><p>Create a new <a class="reference internal" href="api.html#dayz_dev_tools.pbo_writer.PBOWriter" title="dayz_dev_tools.pbo_writer.PBOWriter"><code class="xref py py-class docutils literal notranslate"><span class="pre">PBOWriter</span></code></a> instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>cfgconvert</cite>: The location of the DayZ Tools <code class="docutils literal notranslate"><span class="pre">CfgConvert.exe</span></code> program, or <code class="docutils literal notranslate"><span class="pre">None</span></code> if
+<code class="docutils literal notranslate"><span class="pre">config.cpp</span></code> files should not be binarized.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_writer.PBOWriter.add_file">
+<span class="sig-name descname"><span class="pre">add_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Path</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_writer.html#PBOWriter.add_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_writer.PBOWriter.add_file" title="Link to this definition"></a></dt>
+<dd><p>Add a file to the PBO archive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>path</cite>: A <code class="docutils literal notranslate"><span class="pre">pathlib.Path</span></code> instance containing the location of the file to be added.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_writer.PBOWriter.add_header">
+<span class="sig-name descname"><span class="pre">add_header</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">bytes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">bytes</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_writer.html#PBOWriter.add_header"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_writer.PBOWriter.add_header" title="Link to this definition"></a></dt>
+<dd><p>Add a header to the PBO archive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>name</cite>: The name of the header.</p></li>
+<li><p><cite>value</cite>: The value of the header.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.pbo_writer.PBOWriter.write">
+<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BinaryIO</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/pbo_writer.html#PBOWriter.write"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.pbo_writer.PBOWriter.write" title="Link to this definition"></a></dt>
+<dd><p>Create the PBO archive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>output</cite>: A binary file-like object to receive the PBO archive contents.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-dayz_dev_tools.script_logs">
+<span id="script-logs"></span><h2>Script Logs<a class="headerlink" href="api.html#module-dayz_dev_tools.script_logs" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="dayz_dev_tools.script_logs.newest">
+<span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.script_logs.</span></span><span class="sig-name descname"><span class="pre">newest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">directory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/script_logs.html#newest"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.script_logs.newest" title="Link to this definition"></a></dt>
+<dd><p>Find the newest <code class="docutils literal notranslate"><span class="pre">script_*.log</span></code> file in a directory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>directory</cite>: The directory to search for <code class="docutils literal notranslate"><span class="pre">script_*.log</span></code> files.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The filename of the newest <code class="docutils literal notranslate"><span class="pre">script_*.log</span></code> file, or <code class="docutils literal notranslate"><span class="pre">None</span></code> if no script logs could be
+found.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dayz_dev_tools.script_logs.stream">
+<span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.script_logs.</span></span><span class="sig-name descname"><span class="pre">stream</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outfile</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">TextIO</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">infile</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">TextIO</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_streaming</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">bool</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/script_logs.html#stream"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.script_logs.stream" title="Link to this definition"></a></dt>
+<dd><p>Stream the contents of a log file to another file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>outfile</cite>: A file-like object to stream the log file contents to.</p></li>
+<li><p><cite>infile</cite>: A file-like object containing the log to stream.</p></li>
+<li><p><cite>keep_streaming</cite>: A callback function taking no arguments that returns <cite>True</cite> if streaming
+should continue or <cite>False</cite> if streaming should stop and the function should return.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dayz_dev_tools.script_logs.wait_for_new">
+<span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.script_logs.</span></span><span class="sig-name descname"><span class="pre">wait_for_new</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">directory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">previous_log_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/dayz_dev_tools/script_logs.html#wait_for_new"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.script_logs.wait_for_new" title="Link to this definition"></a></dt>
+<dd><p>Wait for a script log that is newer than another script log to be created in a directory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>directory</cite>: The directory to search for a newer <code class="docutils literal notranslate"><span class="pre">script_*.log</span></code> file.</p></li>
+<li><p><cite>previous_log_name</cite>: The current newest <code class="docutils literal notranslate"><span class="pre">script_*.log</span></code> file.</p></li>
+<li><p><cite>timeout</cite>: Give up and return <code class="docutils literal notranslate"><span class="pre">None</span></code> if no new script log is created after this many
+seconds.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The filename of the newer <code class="docutils literal notranslate"><span class="pre">script_*.log</span></code> file, or <code class="docutils literal notranslate"><span class="pre">None</span></code> if no newer script logs are
+created.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-dayz_dev_tools.server_config">
+<span id="server-configuration"></span><h2>Server Configuration<a class="headerlink" href="api.html#module-dayz_dev_tools.server_config" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.BundleConfig">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.server_config.</span></span><span class="sig-name descname"><span class="pre">BundleConfig</span></span><a class="reference internal" href="_modules/dayz_dev_tools/server_config.html#BundleConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.server_config.BundleConfig" title="Link to this definition"></a></dt>
+<dd><p>Configuration file bundle settings.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.BundleConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">executable</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">profile_directory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">workshop_directory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mods</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">server_mods</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mission_directory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.BundleConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.BundleConfig.config">
+<span class="sig-name descname"><span class="pre">config</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.BundleConfig.config" title="Link to this definition"></a></dt>
+<dd><p>DayZ Server config filename override (optional)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.BundleConfig.directory">
+<span class="sig-name descname"><span class="pre">directory</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.BundleConfig.directory" title="Link to this definition"></a></dt>
+<dd><p>Directory to switch to before running DayZ Server (optional)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.BundleConfig.executable">
+<span class="sig-name descname"><span class="pre">executable</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.BundleConfig.executable" title="Link to this definition"></a></dt>
+<dd><p>DayZ Server executable filename override (optional)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.BundleConfig.mission_directory">
+<span class="sig-name descname"><span class="pre">mission_directory</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.BundleConfig.mission_directory" title="Link to this definition"></a></dt>
+<dd><p>DayZ Server mission directory name override (optional)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.BundleConfig.mods">
+<span class="sig-name descname"><span class="pre">mods</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.BundleConfig.mods" title="Link to this definition"></a></dt>
+<dd><p>DayZ mod list to add</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.BundleConfig.parameters">
+<span class="sig-name descname"><span class="pre">parameters</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.BundleConfig.parameters" title="Link to this definition"></a></dt>
+<dd><p>Extra server command line parameters to add</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.BundleConfig.profile_directory">
+<span class="sig-name descname"><span class="pre">profile_directory</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.BundleConfig.profile_directory" title="Link to this definition"></a></dt>
+<dd><p>DayZ Server profile directory name override (optional)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.BundleConfig.server_mods">
+<span class="sig-name descname"><span class="pre">server_mods</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.BundleConfig.server_mods" title="Link to this definition"></a></dt>
+<dd><p>DayZ server mod list to add</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.BundleConfig.workshop_directory">
+<span class="sig-name descname"><span class="pre">workshop_directory</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.BundleConfig.workshop_directory" title="Link to this definition"></a></dt>
+<dd><p>DayZ workshop directory name override (optional)</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.ServerConfig">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.server_config.</span></span><span class="sig-name descname"><span class="pre">ServerConfig</span></span><a class="reference internal" href="_modules/dayz_dev_tools/server_config.html#ServerConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.server_config.ServerConfig" title="Link to this definition"></a></dt>
+<dd><p>Configuration file settings.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.ServerConfig.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">executable:</span> <span class="pre">str,</span> <span class="pre">config:</span> <span class="pre">str,</span> <span class="pre">bundle_path:</span> <span class="pre">str,</span> <span class="pre">workshop_directory:</span> <span class="pre">str,</span> <span class="pre">bundles:</span> <span class="pre">dict[str,</span> <span class="pre">~dayz_dev_tools.server_config.BundleConfig],</span> <span class="pre">directory:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">profile_directory:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">mission_directory:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None,</span> <span class="pre">parameters:</span> <span class="pre">list[str]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.ServerConfig.__init__" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.ServerConfig.bundle_path">
+<span class="sig-name descname"><span class="pre">bundle_path</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.ServerConfig.bundle_path" title="Link to this definition"></a></dt>
+<dd><p>Filename of the bundles Python module</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.ServerConfig.bundles">
+<span class="sig-name descname"><span class="pre">bundles</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="api.html#dayz_dev_tools.server_config.BundleConfig" title="dayz_dev_tools.server_config.BundleConfig"><span class="pre">BundleConfig</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.ServerConfig.bundles" title="Link to this definition"></a></dt>
+<dd><p>Configuration file bundles, by name (see <a class="reference internal" href="api.html#dayz_dev_tools.server_config.BundleConfig" title="dayz_dev_tools.server_config.BundleConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">dayz_dev_tools.server_config.BundleConfig</span></code></a>)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.ServerConfig.config">
+<span class="sig-name descname"><span class="pre">config</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.ServerConfig.config" title="Link to this definition"></a></dt>
+<dd><p>DayZ Server config filename</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.ServerConfig.directory">
+<span class="sig-name descname"><span class="pre">directory</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.ServerConfig.directory" title="Link to this definition"></a></dt>
+<dd><p>Directory to switch to before running DayZ Server (optional)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.ServerConfig.executable">
+<span class="sig-name descname"><span class="pre">executable</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.ServerConfig.executable" title="Link to this definition"></a></dt>
+<dd><p>DayZ Server executable filename</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.ServerConfig.mission_directory">
+<span class="sig-name descname"><span class="pre">mission_directory</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.ServerConfig.mission_directory" title="Link to this definition"></a></dt>
+<dd><p>DayZ Server mission directory name (optional)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.ServerConfig.parameters">
+<span class="sig-name descname"><span class="pre">parameters</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.ServerConfig.parameters" title="Link to this definition"></a></dt>
+<dd><p>Extra server command line parameters to add</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.ServerConfig.profile_directory">
+<span class="sig-name descname"><span class="pre">profile_directory</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.ServerConfig.profile_directory" title="Link to this definition"></a></dt>
+<dd><p>DayZ Server profile directory name (optional)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.ServerConfig.workshop_directory">
+<span class="sig-name descname"><span class="pre">workshop_directory</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="api.html#dayz_dev_tools.server_config.ServerConfig.workshop_directory" title="Link to this definition"></a></dt>
+<dd><p>DayZ workshop directory name</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dayz_dev_tools.server_config.load">
+<span class="sig-prename descclassname"><span class="pre">dayz_dev_tools.server_config.</span></span><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig" title="dayz_dev_tools.server_config.ServerConfig"><span class="pre">ServerConfig</span></a></span></span><a class="reference internal" href="_modules/dayz_dev_tools/server_config.html#load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="api.html#dayz_dev_tools.server_config.load" title="Link to this definition"></a></dt>
+<dd><p>Read a TOML-syntax DayZ Server configuration file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><cite>filename</cite>: The name of the configuration file to read (e.g. <code class="docutils literal notranslate"><span class="pre">server.toml</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A <a class="reference internal" href="api.html#dayz_dev_tools.server_config.ServerConfig" title="dayz_dev_tools.server_config.ServerConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">ServerConfig</span></code></a>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="commands.html" class="btn btn-neutral float-left" title="Commands" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021-2026, Tim Jensen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

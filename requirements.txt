@@ -1,0 +1,23 @@
+# DayZConfigMaster - SOVEREIGN INDIVIDUAL LICENSE
+# https://github.com/landracer/DayZConfigMaster/LICENSE
+
+# DayZConfigMaster Requirements
+
+# Core dependencies (already in original project)
+# Python 3.8+ recommended
+# tkinter (usually included with Python)
+
+# New dependencies for DayZ Labs feature parity
+
+# Git integration (optional - for git support)
+GitPython>=3.1.0
+
+# Workshop browser and API (required - for workshop management)
+requests>=2.28.0
+
+# GUI enhancements (optional - for improved UI)
+Pillow>=9.0.0  # Image handling for icons
+
+# Optional: Windows-specific extensions
+pywin32; sys_platform == "win32"  # For system tray and named pipes on Windows
+pytest

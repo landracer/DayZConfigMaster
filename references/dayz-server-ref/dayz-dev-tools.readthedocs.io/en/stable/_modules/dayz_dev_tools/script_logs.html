@@ -1,0 +1,208 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="readthedocs-addons-api-version" content="1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dayz_dev_tools.script_logs &mdash; dayz-dev-tools  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css%3Fv=b86133f3.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css%3Fv=9edc463e.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/rtd_sphinx_search.min.css" />
+
+  
+      <script src="../../_static/jquery.js%3Fv=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js%3Fv=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js%3Fv=7f41d439"></script>
+      <script src="../../_static/doctools.js%3Fv=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js%3Fv=6ffebe34"></script>
+      <script src="../../_static/js/rtd_search_config.js"></script>
+      <script src="../../_static/js/rtd_sphinx_search.min.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <script src="../../_static/js/versions.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+<script async type="text/javascript" src="../../../../_/static/javascript/readthedocs-addons.js"></script><meta name="readthedocs-project-slug" content="dayz-dev-tools" /><meta name="readthedocs-version-slug" content="stable" /><meta name="readthedocs-resolver-filename" content="/_modules/dayz_dev_tools/script_logs.html" /><meta name="readthedocs-http-status" content="200" /></head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            dayz-dev-tools
+          </a>
+              <div class="switch-menus">
+                <div class="version-switch"></div>
+                <div class="language-switch"></div>
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../commands.html">Commands</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">dayz-dev-tools</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">dayz_dev_tools.script_logs</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for dayz_dev_tools.script_logs</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">abc</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+
+
+<span class="n">SCRIPT_LOG_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;script_.*\.log$&quot;</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="newest">
+<a class="viewcode-back" href="../../api.html#dayz_dev_tools.script_logs.newest">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">newest</span><span class="p">(</span><span class="n">directory</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find the newest ``script_*.log`` file in a directory.</span>
+
+<span class="sd">    :Parameters:</span>
+<span class="sd">      - `directory`: The directory to search for ``script_*.log`` files.</span>
+
+<span class="sd">    :Returns:</span>
+<span class="sd">      The filename of the newest ``script_*.log`` file, or ``None`` if no script logs could be</span>
+<span class="sd">      found.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">logs</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">log</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">directory</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">SCRIPT_LOG_RE</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">log</span><span class="p">)</span>
+    <span class="p">]</span>
+
+    <span class="n">newest</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">newest_mtime</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">for</span> <span class="n">log</span> <span class="ow">in</span> <span class="n">logs</span><span class="p">:</span>
+        <span class="n">mtime</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">lstat</span><span class="p">(</span><span class="n">log</span><span class="p">)</span><span class="o">.</span><span class="n">st_mtime</span>
+        <span class="k">if</span> <span class="n">newest_mtime</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">mtime</span> <span class="o">&gt;</span> <span class="n">newest_mtime</span><span class="p">:</span>
+            <span class="n">newest</span> <span class="o">=</span> <span class="n">log</span>
+            <span class="n">newest_mtime</span> <span class="o">=</span> <span class="n">mtime</span>
+
+    <span class="k">return</span> <span class="n">newest</span></div>
+
+
+
+<div class="viewcode-block" id="wait_for_new">
+<a class="viewcode-back" href="../../api.html#dayz_dev_tools.script_logs.wait_for_new">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">wait_for_new</span><span class="p">(</span>
+    <span class="n">directory</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">previous_log_name</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wait for a script log that is newer than another script log to be created in a directory.</span>
+
+<span class="sd">    :Parameters:</span>
+<span class="sd">      - `directory`: The directory to search for a newer ``script_*.log`` file.</span>
+<span class="sd">      - `previous_log_name`: The current newest ``script_*.log`` file.</span>
+<span class="sd">      - `timeout`: Give up and return ``None`` if no new script log is created after this many</span>
+<span class="sd">        seconds.</span>
+
+<span class="sd">    :Returns:</span>
+<span class="sd">      The filename of the newer ``script_*.log`` file, or ``None`` if no newer script logs are</span>
+<span class="sd">      created.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">tries</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="n">new_log_name</span> <span class="o">:=</span> <span class="n">newest</span><span class="p">(</span><span class="n">directory</span><span class="p">))</span> <span class="o">==</span> <span class="n">previous_log_name</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">tries</span> <span class="o">&gt;=</span> <span class="n">timeout</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">tries</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">new_log_name</span></div>
+
+
+
+<div class="viewcode-block" id="stream">
+<a class="viewcode-back" href="../../api.html#dayz_dev_tools.script_logs.stream">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">stream</span><span class="p">(</span>
+    <span class="n">outfile</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">TextIO</span><span class="p">,</span> <span class="n">infile</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">TextIO</span><span class="p">,</span> <span class="n">keep_streaming</span><span class="p">:</span> <span class="n">abc</span><span class="o">.</span><span class="n">Callable</span><span class="p">[[],</span> <span class="nb">bool</span><span class="p">]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Stream the contents of a log file to another file.</span>
+
+<span class="sd">    :Parameters:</span>
+<span class="sd">      - `outfile`: A file-like object to stream the log file contents to.</span>
+<span class="sd">      - `infile`: A file-like object containing the log to stream.</span>
+<span class="sd">      - `keep_streaming`: A callback function taking no arguments that returns `True` if streaming</span>
+<span class="sd">        should continue or `False` if streaming should stop and the function should return.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">while</span> <span class="n">keep_streaming</span><span class="p">():</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">infile</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">content</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+            <span class="n">outfile</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2021-2026, Tim Jensen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

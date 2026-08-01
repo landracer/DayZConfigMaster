@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Loot Balancing Guide — DZconfig</title>
+
+    <script>
+        if (localStorage.getItem('darkMode') === 'true' ||
+            (localStorage.getItem('darkMode') === null &&
+             window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+
+    <link rel="preload" as="style" href="https://dzconfig.b-cdn.net/build/assets/app-Cp-XYCF2.css" /><link rel="preload" as="style" href="https://dzconfig.b-cdn.net/build/assets/leaflet-DqfQ017O.css" /><link rel="modulepreload" as="script" href="https://dzconfig.b-cdn.net/build/assets/app-BdBlfhYw.js" /><link rel="modulepreload" as="script" href="https://dzconfig.b-cdn.net/build/assets/rolldown-runtime-CZw34AYf.js" /><link rel="modulepreload" as="script" href="https://dzconfig.b-cdn.net/build/assets/leaflet-B1FVeUjs.js" /><link rel="modulepreload" as="script" href="https://dzconfig.b-cdn.net/build/assets/leaflet-dc85Ko-k.js" /><link rel="stylesheet" href="https://dzconfig.b-cdn.net/build/assets/app-Cp-XYCF2.css" /><link rel="stylesheet" href="https://dzconfig.b-cdn.net/build/assets/leaflet-DqfQ017O.css" /><script type="module" src="https://dzconfig.b-cdn.net/build/assets/app-BdBlfhYw.js"></script>    <style>[x-cloak] { display: none !important; }</style>
+</head>
+<body class="font-sans antialiased bg-surface-50 dark:bg-navy-900 text-surface-900 dark:text-navy-100 min-h-screen">
+    
+    <header class="sticky top-0 z-40 border-b border-surface-200 bg-white dark:border-navy-700 dark:bg-navy-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
+            <div class="flex items-center gap-4">
+                <a href="https://dzconfig.com" class="flex items-center gap-2">
+                    <svg
+    viewBox="0 0 160 128"
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    aria-hidden="true"
+    data-logo="dzconfig-dz-wireframe-3d"
+    class="h-6 w-6 text-indigo-500"
+>
+    
+    <defs>
+        
+        <linearGradient id="shade-right" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="currentColor" stop-opacity="0.12" />
+            <stop offset="100%" stop-color="currentColor" stop-opacity="0.06" />
+        </linearGradient>
+        
+        <linearGradient id="shade-top" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="currentColor" stop-opacity="0.08" />
+            <stop offset="100%" stop-color="currentColor" stop-opacity="0.03" />
+        </linearGradient>
+    </defs>
+
+    <g
+        stroke="currentColor"
+        stroke-linejoin="round"
+        stroke-linecap="round"
+        shape-rendering="geometricPrecision"
+        vector-effect="non-scaling-stroke"
+    >
+        
+
+        
+        <path
+            d="M12 28 L22 18 H42 L32 28 Z"
+            fill="url(#shade-top)"
+            stroke="none"
+        />
+
+        
+        <path
+            d="M32 28 L42 18
+               C63 18 76 32 76 56
+               C76 70 72 79 66 84
+               C66 90 56 104 32 104
+               C66 42 56 28 32 28 Z"
+            fill="url(#shade-right)"
+            stroke="none"
+        />
+
+        <g transform="translate(-5 0)">
+            <path
+                d="M74 28 L84 18 H144 L134 28 Z"
+                fill="url(#shade-top)"
+                stroke="none"
+            />
+            <path
+                d="M134 28 L144 18 V34 L134 44 Z"
+                fill="url(#shade-right)"
+                stroke="none"
+            />
+            <path
+                d="M134 88 L144 78 V94 L134 104 Z"
+                fill="url(#shade-right)"
+                stroke="none"
+            />
+            <path
+                d="M90 88 L100 78 H144 L134 88 Z"
+                fill="url(#shade-top)"
+                stroke="none"
+            />
+        </g>
+
+        
+
+        <path
+            d="M22 18 H42
+               C63 18 76 32 76 56
+               C76 70 72 79 66 84"
+            fill="none"
+            opacity="0.4"
+            stroke-width="2"
+        />
+
+        <path
+            d="M22 18 V28"
+            fill="none"
+            opacity="0.4"
+            stroke-width="2"
+        />
+
+        <g transform="translate(-5 0)">
+            <path
+                d="M84 18 H144 V34 L100 78 H144 V94 H134"
+                fill="none"
+                opacity="0.4"
+                stroke-width="2"
+            />
+            <path
+                d="M84 18 V28"
+                fill="none"
+                opacity="0.4"
+                stroke-width="2"
+            />
+        </g>
+
+        
+
+        <path
+            d="M12 28 L22 18
+               M32 28 L42 18"
+            fill="none"
+            opacity="0.4"
+            stroke-width="2"
+        />
+
+        <g transform="translate(-5 0)">
+            <path
+                d="M74 28 L84 18
+                   M134 28 L144 18
+                   M134 44 L144 34
+                   M90 88 L100 78
+                   M134 88 L144 78
+                   M134 104 L144 94"
+                fill="none"
+                opacity="0.4"
+                stroke-width="2"
+            />
+        </g>
+
+        
+
+        <path
+            d="M12 28 H32
+               C56 28 66 42 66 66
+               C66 90 56 104 32 104
+               H12 Z"
+            fill="none"
+            opacity="0.9"
+            stroke-width="3"
+        />
+
+        <path
+            d="M26 42 H32
+               C44 42 50 52 50 66
+               C50 80 44 90 32 90
+               H26 Z"
+            fill="none"
+            opacity="0.9"
+            stroke-width="2.5"
+        />
+
+        <g transform="translate(-5 0)">
+            <path
+                d="M74 28 H134 V42 L96 88 H134 V104 H74 V90 L112 42 H74 Z"
+                fill="none"
+                opacity="0.9"
+                stroke-width="3"
+            />
+        </g>
+    </g>
+</svg>
+                    <span class="text-sm font-bold tracking-tight">DZconfig</span>
+                </a>
+                <span class="text-surface-300 dark:text-navy-600">/</span>
+                <a href="https://dzconfig.com/wiki" class="text-sm font-medium text-surface-600 dark:text-navy-300 hover:text-surface-900 dark:hover:text-white">Wiki</a>
+            </div>
+            <div class="flex items-center gap-3" x-data>
+                <button type="button" @click="$store.darkMode.toggle()" aria-label="Toggle dark mode" class="p-1.5 text-surface-500 hover:text-surface-700 dark:text-navy-400 dark:hover:text-navy-200 rounded">
+                    <i x-show="!$store.darkMode.on" x-cloak class="ph ph-moon text-lg" aria-hidden="true"></i>
+                    <i x-show="$store.darkMode.on" x-cloak class="ph ph-sun text-lg" aria-hidden="true"></i>
+                </button>
+                                    <a href="https://dzconfig.com/login" class="text-sm text-surface-600 dark:text-navy-300 hover:text-surface-900 dark:hover:text-white">Log in</a>
+                            </div>
+        </div>
+    </header>
+
+    <div x-data="{ mobileSidebarOpen: false }" class="lg:pl-64">
+        
+        <aside class="hidden lg:block fixed top-14 left-0 z-30 w-64 h-[calc(100vh-3.5rem)] border-r border-surface-200 bg-white dark:border-navy-700 dark:bg-navy-800">
+            <nav class="h-full overflow-y-auto p-4">
+                <div class="mb-5">
+    <a href="https://dzconfig.com/wiki"
+       class="group flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition
+           border border-transparent text-surface-700 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-300 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+        <i class="ph ph-house text-base" aria-hidden="true"></i>
+        <span class="font-medium">Wiki Home</span>
+    </a>
+</div>
+
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">Guides</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="understanding-ce.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Understanding the DayZ Economy</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="loot-balancing.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-indigo-100 bg-indigo-50 text-indigo-700 shadow-sm dark:border-indigo-900/30 dark:bg-indigo-900/20 dark:text-indigo-300">
+                        <span class="truncate">Loot Balancing Guide</span>
+                                                    <span class="h-1.5 w-1.5 rounded-full bg-indigo-500 dark:bg-indigo-300"></span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="heli-crash-events.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Heli Crash and Dynamic Event Balancing</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">Configuration Files</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="config-files.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Configuration Files Overview</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="types.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">types.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="events.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">events.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="globals.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">globals.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="economy.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">economy.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="messages.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">messages.xml</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">Config Settings</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="cfgeconomycore.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgeconomycore.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgeffectarea.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgEffectArea.json</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgenvironment.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgenvironment.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgeventspawns.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgeventspawns.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfggameplay.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfggameplay.json</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgignorelist.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgIgnoreList.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgweather.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgweather.xml</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">Server Config</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="cfglimitsdefinition.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfglimitsdefinition.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgplayerspawnpoints.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgplayerspawnpoints.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgrandompresets.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgrandompresets.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgspawnabletypes.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgspawnabletypes.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="serverdz.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">serverDZ.cfg</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="server-start-bat.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Server Start .bat</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">DZconfig Tools</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="trader-config.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Trader</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="expansion-settings.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Expansion Settings</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="animal-territories.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Animal Territory XML</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="remote-files.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Remote Files &amp; Deployment</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="server-log-analysis.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Server Log Analysis</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="map-tools.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Map Tools</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">Advanced Files</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="cfgeventgroups.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgeventgroups.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgundergroundtriggers.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgundergroundtriggers.json</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfglimitsdefinitionuser.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfglimitsdefinitionuser.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="mapclusterproto.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">mapclusterproto.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="mapgroupdirt.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">mapgroupdirt.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="init-c.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">init.c Mission Script</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">Legal</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="terms.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Terms &amp; Conditions</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="privacy.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Privacy Policy</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+
+<div class="mb-1">
+    <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">API</div>
+    <ul class="space-y-1">
+        <li>
+            <a href="api.html"
+               class="group flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-sm transition text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                <i class="ph ph-book-open-text text-base" aria-hidden="true"></i>
+                <span class="font-medium">API Documentation</span>
+            </a>
+        </li>
+    </ul>
+</div>
+            </nav>
+        </aside>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            
+            <div class="mb-4 lg:hidden">
+                <button
+                    type="button"
+                    @click="mobileSidebarOpen = !mobileSidebarOpen"
+                    class="inline-flex w-full items-center justify-between rounded-lg border border-surface-200 bg-white px-3 py-2 text-sm font-medium text-surface-700 shadow-sm transition hover:bg-surface-100 dark:border-navy-700 dark:bg-navy-800 dark:text-navy-200 dark:hover:bg-navy-700"
+                >
+                    <span class="inline-flex items-center gap-2">
+                        <i class="ph ph-list text-base" aria-hidden="true"></i>
+                        Wiki Navigation
+                    </span>
+                    <i class="ph text-base" :class="mobileSidebarOpen ? 'ph-caret-up' : 'ph-caret-down'" aria-hidden="true"></i>
+                </button>
+
+                <div
+                    x-show="mobileSidebarOpen"
+                    x-cloak
+                    x-transition:enter="transition ease-out duration-150"
+                    x-transition:enter-start="opacity-0 -translate-y-1"
+                    x-transition:enter-end="opacity-100 translate-y-0"
+                    x-transition:leave="transition ease-in duration-100"
+                    x-transition:leave-start="opacity-100 translate-y-0"
+                    x-transition:leave-end="opacity-0 -translate-y-1"
+                    class="mt-2 rounded-xl border border-surface-200 bg-white p-3 shadow-sm dark:border-navy-700 dark:bg-navy-800"
+                >
+                    <div class="max-h-[60vh] overflow-y-auto">
+                        <div class="mb-5">
+    <a href="https://dzconfig.com/wiki"
+       class="group flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition
+           border border-transparent text-surface-700 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-300 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+        <i class="ph ph-house text-base" aria-hidden="true"></i>
+        <span class="font-medium">Wiki Home</span>
+    </a>
+</div>
+
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">Guides</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="understanding-ce.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Understanding the DayZ Economy</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="loot-balancing.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-indigo-100 bg-indigo-50 text-indigo-700 shadow-sm dark:border-indigo-900/30 dark:bg-indigo-900/20 dark:text-indigo-300">
+                        <span class="truncate">Loot Balancing Guide</span>
+                                                    <span class="h-1.5 w-1.5 rounded-full bg-indigo-500 dark:bg-indigo-300"></span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="heli-crash-events.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Heli Crash and Dynamic Event Balancing</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">Configuration Files</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="config-files.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Configuration Files Overview</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="types.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">types.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="events.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">events.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="globals.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">globals.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="economy.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">economy.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="messages.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">messages.xml</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">Config Settings</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="cfgeconomycore.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgeconomycore.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgeffectarea.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgEffectArea.json</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgenvironment.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgenvironment.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgeventspawns.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgeventspawns.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfggameplay.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfggameplay.json</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgignorelist.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgIgnoreList.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgweather.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgweather.xml</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">Server Config</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="cfglimitsdefinition.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfglimitsdefinition.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgplayerspawnpoints.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgplayerspawnpoints.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgrandompresets.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgrandompresets.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgspawnabletypes.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgspawnabletypes.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="serverdz.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">serverDZ.cfg</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="server-start-bat.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Server Start .bat</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">DZconfig Tools</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="trader-config.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Trader</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="expansion-settings.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Expansion Settings</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="animal-territories.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Animal Territory XML</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="remote-files.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Remote Files &amp; Deployment</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="server-log-analysis.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Server Log Analysis</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="map-tools.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Map Tools</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">Advanced Files</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="cfgeventgroups.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgeventgroups.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfgundergroundtriggers.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfgundergroundtriggers.json</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="cfglimitsdefinitionuser.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">cfglimitsdefinitionuser.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="mapclusterproto.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">mapclusterproto.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="mapgroupdirt.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">mapgroupdirt.xml</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="init-c.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">init.c Mission Script</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+    <div class="mb-5">
+        <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">Legal</div>
+        <ul class="space-y-1">
+                                            <li>
+                    <a href="terms.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Terms &amp; Conditions</span>
+                                            </a>
+                </li>
+                                            <li>
+                    <a href="privacy.html"
+                       class="group flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm leading-5 transition
+                           border border-transparent text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                        <span class="truncate">Privacy Policy</span>
+                                            </a>
+                </li>
+                    </ul>
+    </div>
+
+<div class="mb-1">
+    <div class="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-surface-400 dark:text-navy-500">API</div>
+    <ul class="space-y-1">
+        <li>
+            <a href="api.html"
+               class="group flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-sm transition text-surface-600 hover:border-surface-200 hover:bg-surface-100 hover:text-surface-900 dark:text-navy-400 dark:hover:border-navy-700 dark:hover:bg-navy-800 dark:hover:text-white">
+                <i class="ph ph-book-open-text text-base" aria-hidden="true"></i>
+                <span class="font-medium">API Documentation</span>
+            </a>
+        </li>
+    </ul>
+</div>
+                    </div>
+                </div>
+            </div>
+
+            <main class="min-w-0">
+                <div class="space-y-8">
+            <div>
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs font-medium px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200">Guide</span>
+                    <span class="text-xs text-surface-500 dark:text-navy-500">Economy Tuning</span>                </div>
+                <h1 class="text-2xl font-bold">Loot Balancing Guide</h1>
+                <p class="mt-2 text-surface-600 dark:text-navy-400">Learn how to create a balanced loot economy. Understand rarity tiers, nominal/min ratios, category-specific balancing, and avoid common mistakes that ruin server gameplay.</p>
+            </div>
+
+            
+            <section class="rounded-lg border border-surface-200 dark:border-navy-700 bg-white dark:bg-navy-800 p-6">
+                <h2 class="mb-4 text-lg font-semibold">Balancing Philosophy</h2>
+                <p class="text-sm text-surface-600 dark:text-navy-400 mb-3">Good loot balance creates a gameplay loop where players feel rewarded for exploration without becoming overpowered too quickly. The goal is a natural progression: coastal spawns provide basic survival gear, inland towns offer better tools and clothing, and military zones reward risk with high-tier weapons and equipment.
+                </p>
+                <p class="text-sm text-surface-600 dark:text-navy-400 mb-3">The key principle is <strong>scarcity drives engagement</strong>. If every building has an M4, players have no reason to explore. If no building has food, players quit in frustration. Balance sits between these extremes.
+                </p>
+                <p class="text-sm text-surface-600 dark:text-navy-400">Before changing values, define your server's identity. A hardcore survival server uses lower nominals and longer restocks. A PvP-focused server increases weapon spawns but may reduce medical supplies. A casual server raises everything slightly. Your values should serve your vision.
+                </p>
+            </section>
+
+            
+            <section class="rounded-lg border border-surface-200 dark:border-navy-700 bg-white dark:bg-navy-800 p-6">
+                <h2 class="mb-2 text-lg font-semibold">Rarity Tiers</h2>
+                <p class="mb-4 text-sm text-surface-600 dark:text-navy-400">Use these tiers as starting points. Adjust based on your server population and map size.</p>
+                <div class="overflow-hidden rounded-lg border border-surface-200 dark:border-navy-700">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-surface-200 text-sm dark:divide-navy-700">
+                            <thead class="bg-surface-50 dark:bg-navy-900">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-navy-400">Tier</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-navy-400">Nominal Range</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-navy-400">Min Range</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-navy-400">Restock</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-surface-500 dark:text-navy-400">Examples</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-surface-100 bg-white dark:divide-navy-700/50 dark:bg-navy-800">
+                                <tr class="transition hover:bg-surface-50/80 dark:hover:bg-navy-900/50">
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 dark:bg-green-950/40 dark:text-green-300">Common</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-surface-100 px-2 py-0.5 font-mono text-xs font-medium text-surface-700 dark:bg-navy-700 dark:text-navy-200">20–50</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-surface-100 px-2 py-0.5 font-mono text-xs font-medium text-surface-700 dark:bg-navy-700 dark:text-navy-200">10–30</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-amber-50 px-2 py-0.5 font-mono text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">0–60</span>
+                                    </td>
+                                    <td class="px-4 py-3 leading-relaxed text-surface-600 dark:text-navy-400">Canned food, rags, basic clothing, stones</td>
+                                </tr>
+                                <tr class="transition hover:bg-surface-50/80 dark:hover:bg-navy-900/50">
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">Uncommon</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-surface-100 px-2 py-0.5 font-mono text-xs font-medium text-surface-700 dark:bg-navy-700 dark:text-navy-200">10–20</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-surface-100 px-2 py-0.5 font-mono text-xs font-medium text-surface-700 dark:bg-navy-700 dark:text-navy-200">5–12</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-amber-50 px-2 py-0.5 font-mono text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">60–300</span>
+                                    </td>
+                                    <td class="px-4 py-3 leading-relaxed text-surface-600 dark:text-navy-400">Backpacks, axes, pistols, compasses</td>
+                                </tr>
+                                <tr class="transition hover:bg-surface-50/80 dark:hover:bg-navy-900/50">
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800 dark:bg-orange-950/40 dark:text-orange-300">Rare</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-surface-100 px-2 py-0.5 font-mono text-xs font-medium text-surface-700 dark:bg-navy-700 dark:text-navy-200">3–10</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-surface-100 px-2 py-0.5 font-mono text-xs font-medium text-surface-700 dark:bg-navy-700 dark:text-navy-200">1–5</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-amber-50 px-2 py-0.5 font-mono text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">300–1800</span>
+                                    </td>
+                                    <td class="px-4 py-3 leading-relaxed text-surface-600 dark:text-navy-400">Assault rifles, plate carriers, NVGs</td>
+                                </tr>
+                                <tr class="transition hover:bg-surface-50/80 dark:hover:bg-navy-900/50">
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">Very Rare</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-surface-100 px-2 py-0.5 font-mono text-xs font-medium text-surface-700 dark:bg-navy-700 dark:text-navy-200">1–3</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-surface-100 px-2 py-0.5 font-mono text-xs font-medium text-surface-700 dark:bg-navy-700 dark:text-navy-200">0–1</span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-3">
+                                        <span class="inline-flex rounded-md bg-amber-50 px-2 py-0.5 font-mono text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">1800–3600</span>
+                                    </td>
+                                    <td class="px-4 py-3 leading-relaxed text-surface-600 dark:text-navy-400">M4A1, LAR, VSS, helicopter crash loot</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            
+            <section class="rounded-lg border border-surface-200 dark:border-navy-700 bg-white dark:bg-navy-800 p-6">
+                <h2 class="mb-4 text-lg font-semibold">Nominal/Min Ratio Guidelines</h2>
+                <p class="text-sm text-surface-600 dark:text-navy-400 mb-4">The ratio between <code>nominal</code> and <code>min</code> controls how the CE restocks items. Here are recommended ratios for different scenarios:</p>
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="p-4 rounded-lg bg-surface-50 dark:bg-navy-900 border border-surface-200 dark:border-navy-700 text-center">
+                        <p class="text-2xl font-bold text-amber-800 dark:text-amber-300">50%</p>
+                        <p class="text-xs font-semibold mt-1">Steady Flow</p>
+                        <p class="text-xs text-surface-500 dark:text-navy-500 mt-1">min = 50% of nominal. Frequent small restocks. Best for common items like food and basic tools.</p>
+                    </div>
+                    <div class="p-4 rounded-lg bg-surface-50 dark:bg-navy-900 border border-surface-200 dark:border-navy-700 text-center">
+                        <p class="text-2xl font-bold text-amber-800 dark:text-amber-300">60–70%</p>
+                        <p class="text-xs font-semibold mt-1">Balanced</p>
+                        <p class="text-xs text-surface-500 dark:text-navy-500 mt-1">The sweet spot for most items. Restocks feel natural without flooding the map. Recommended default.</p>
+                    </div>
+                    <div class="p-4 rounded-lg bg-surface-50 dark:bg-navy-900 border border-surface-200 dark:border-navy-700 text-center">
+                        <p class="text-2xl font-bold text-amber-800 dark:text-amber-300">30–40%</p>
+                        <p class="text-xs font-semibold mt-1">Scarce</p>
+                        <p class="text-xs text-surface-500 dark:text-navy-500 mt-1">Large gap means rare restocks in bigger batches. Creates scarcity windows. Best for rare weapons and high-tier gear.</p>
+                    </div>
+                </div>
+            </section>
+
+            
+            <section class="rounded-lg border border-surface-200 dark:border-navy-700 bg-white dark:bg-navy-800 p-6">
+                <h2 class="mb-4 text-lg font-semibold">Category-Specific Balancing</h2>
+                <div class="space-y-4">
+                    <div class="p-4 rounded-lg bg-surface-50 dark:bg-navy-900 border border-surface-200 dark:border-navy-700">
+                        <h3 class="font-semibold text-sm mb-2">Weapons</h3>
+                        <p class="text-sm text-surface-600 dark:text-navy-400">Weapons define your server's PvP intensity. Keep assault rifles and snipers at rare/very rare tiers. Pistols and shotguns can be uncommon. Always balance ammo alongside weapons — a gun without ammo is just weight. Set <code>count_in_player</code> to 1 for top-tier weapons so hoarding reduces world spawns.</p>
+                    </div>
+                    <div class="p-4 rounded-lg bg-surface-50 dark:bg-navy-900 border border-surface-200 dark:border-navy-700">
+                        <h3 class="font-semibold text-sm mb-2">Food & Drinks</h3>
+                        <p class="text-sm text-surface-600 dark:text-navy-400">Food is the survival baseline. Too little and new players die before they learn the game. Too much and survival becomes trivial. Keep canned food common, fresh food uncommon. Drinks should be slightly more available than food since dehydration kills faster. Coastal areas need higher food density for fresh spawns.</p>
+                    </div>
+                    <div class="p-4 rounded-lg bg-surface-50 dark:bg-navy-900 border border-surface-200 dark:border-navy-700">
+                        <h3 class="font-semibold text-sm mb-2">Tools</h3>
+                        <p class="text-sm text-surface-600 dark:text-navy-400">Tools enable gameplay loops: axes for firewood, knives for skinning, shovels for gardening. Keep basic tools (knives, can openers) common. Specialized tools (shovels, pliers, hacksaws) at uncommon. Players should find a knife within their first few buildings.</p>
+                    </div>
+                    <div class="p-4 rounded-lg bg-surface-50 dark:bg-navy-900 border border-surface-200 dark:border-navy-700">
+                        <h3 class="font-semibold text-sm mb-2">Clothing</h3>
+                        <p class="text-sm text-surface-600 dark:text-navy-400">Clothing provides storage and insulation. Basic civilian clothes should be very common. Military clothing at uncommon/rare. Ghillie suits and high-capacity vests at rare. Clothing variety keeps the game visually interesting — don't make one outfit dominate.</p>
+                    </div>
+                    <div class="p-4 rounded-lg bg-surface-50 dark:bg-navy-900 border border-surface-200 dark:border-navy-700">
+                        <h3 class="font-semibold text-sm mb-2">Medical</h3>
+                        <p class="text-sm text-surface-600 dark:text-navy-400">Medical supplies determine how punishing combat and disease are. Bandages and rags should be common. Morphine and blood bags at uncommon. Epinephrine and surgical kits at rare. If your server has frequent PvP, increase medical spawns slightly to keep players in the fight longer.</p>
+                    </div>
+                </div>
+            </section>
+
+            
+            <section class="rounded-lg border border-surface-200 dark:border-navy-700 bg-white dark:bg-navy-800 p-6">
+                <h2 class="mb-4 text-lg font-semibold">Common Mistakes to Avoid</h2>
+                <div class="space-y-3 text-sm">
+                    <div class="flex items-start gap-3 p-3 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10">
+                        <div>
+                            <strong class="text-red-700 dark:text-red-400">Setting nominal too high</strong>
+                            <p class="text-surface-600 dark:text-navy-400 mt-1">Flooding the map with items kills exploration incentive and tanks server performance. More items = more entities to track = lower FPS.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3 p-3 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10">
+                        <div>
+                            <strong class="text-red-700 dark:text-red-400">Ignoring ammo balance</strong>
+                            <p class="text-surface-600 dark:text-navy-400 mt-1">Increasing weapon spawns without matching ammo creates frustration. Decreasing ammo without reducing weapons creates inventory clutter. Always adjust both together.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3 p-3 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10">
+                        <div>
+                            <strong class="text-red-700 dark:text-red-400">Setting min equal to nominal</strong>
+                            <p class="text-surface-600 dark:text-navy-400 mt-1">This makes the CE constantly try to restock, creating performance overhead and unnatural instant-respawn behavior. Always keep min lower than nominal.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3 p-3 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10">
+                        <div>
+                            <strong class="text-red-700 dark:text-red-400">Changing too many values at once</strong>
+                            <p class="text-surface-600 dark:text-navy-400 mt-1">When something breaks, you won't know which change caused it. Modify one category at a time, test, then move to the next.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3 p-3 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10">
+                        <div>
+                            <strong class="text-red-700 dark:text-red-400">Forgetting about map size</strong>
+                            <p class="text-surface-600 dark:text-navy-400 mt-1">Chernarus and Livonia have different numbers of spawn points. A nominal of 10 on Chernarus feels very different than 10 on a smaller map. Scale values to your map.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            
+            <section class="rounded-lg border border-surface-200 dark:border-navy-700 bg-white dark:bg-navy-800 p-6">
+                <h2 class="mb-4 text-lg font-semibold">Step-by-Step Balancing Process</h2>
+                <ol class="space-y-4 text-sm">
+                    <li class="flex gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 flex items-center justify-center font-bold text-xs">1</span>
+                        <div>
+                            <strong>Define your server vision</strong>
+                            <p class="text-surface-600 dark:text-navy-400 mt-1">Decide if your server is hardcore survival, casual PvP, roleplay, or a mix. This determines your baseline values.</p>
+                        </div>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 flex items-center justify-center font-bold text-xs">2</span>
+                        <div>
+                            <strong>Start with vanilla types.xml</strong>
+                            <p class="text-surface-600 dark:text-navy-400 mt-1">Never start from scratch. The vanilla file has been balanced by Bohemia over years. Use it as your foundation.</p>
+                        </div>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 flex items-center justify-center font-bold text-xs">3</span>
+                        <div>
+                            <strong>Adjust one category at a time</strong>
+                            <p class="text-surface-600 dark:text-navy-400 mt-1">Start with weapons, then food, then tools. Test each category before moving to the next.</p>
+                        </div>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 flex items-center justify-center font-bold text-xs">4</span>
+                        <div>
+                            <strong>Apply rarity tiers consistently</strong>
+                            <p class="text-surface-600 dark:text-navy-400 mt-1">Use the tier table above. All items in the same tier should have similar nominal/min/restock values.</p>
+                        </div>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 flex items-center justify-center font-bold text-xs">5</span>
+                        <div>
+                            <strong>Set appropriate flags</strong>
+                            <p class="text-surface-600 dark:text-navy-400 mt-1">Enable <code>count_in_hoarder</code> and <code>count_in_player</code> for rare items. This prevents hoarding from draining the world supply.</p>
+                        </div>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 flex items-center justify-center font-bold text-xs">6</span>
+                        <div>
+                            <strong>Test with real players</strong>
+                            <p class="text-surface-600 dark:text-navy-400 mt-1">Solo testing doesn't reveal hoarding issues or high-traffic area depletion. Get feedback from your community.</p>
+                        </div>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 flex items-center justify-center font-bold text-xs">7</span>
+                        <div>
+                            <strong>Iterate based on feedback</strong>
+                            <p class="text-surface-600 dark:text-navy-400 mt-1">Monitor player complaints and server logs. Adjust values in 10-20% increments, not wholesale changes.</p>
+                        </div>
+                    </li>
+                </ol>
+            </section>
+
+            
+            <section class="rounded-lg border border-surface-200 dark:border-navy-700 bg-white dark:bg-navy-800 p-6">
+                <h2 class="mb-4 text-lg font-semibold">Testing Methodology</h2>
+                <p class="text-sm text-surface-600 dark:text-navy-400 mb-4">Effective testing requires a systematic approach:</p>
+                <div class="space-y-3 text-sm text-surface-600 dark:text-navy-400">
+                    <div class="p-3 rounded-lg bg-surface-50 dark:bg-navy-900 border border-surface-200 dark:border-navy-700">
+                        <strong>1. Set up a test server</strong>
+                        <p class="mt-1">Use a separate server instance with the same map and mods. Never test economy changes on your live server first.</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-surface-50 dark:bg-navy-900 border border-surface-200 dark:border-navy-700">
+                        <strong>2. Wipe persistence</strong>
+                        <p class="mt-1">Delete the storage_1 folder to start fresh. Old persistence data will conflict with new economy values.</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-surface-50 dark:bg-navy-900 border border-surface-200 dark:border-navy-700">
+                        <strong>3. Run multiple restart cycles</strong>
+                        <p class="mt-1">The CE needs 2-3 restart cycles to fully populate the map. Don't judge results after one restart.</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-surface-50 dark:bg-navy-900 border border-surface-200 dark:border-navy-700">
+                        <strong>4. Check multiple locations</strong>
+                        <p class="mt-1">Visit coastal towns, inland cities, and military bases. Loot distribution should match your intended progression.</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-surface-50 dark:bg-navy-900 border border-surface-200 dark:border-navy-700">
+                        <strong>5. Monitor server performance</strong>
+                        <p class="mt-1">Watch server FPS and entity counts. If performance drops, your total nominal values across all items may be too high.</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

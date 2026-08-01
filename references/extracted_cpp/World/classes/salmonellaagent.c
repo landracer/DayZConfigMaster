@@ -1,0 +1,15 @@
+// Source: F:/Games/Dayz/scripts/4_world/classes/transmissionagents/agents/salmonellaagent.c Source File
+// Extracted from DayZ Code Explorer by Zeroy
+
+class SalmonellaAgent extends AgentBase
+{
+    override void Init()
+    {
+        m_Type                  = eAgents.SALMONELLA;
+        m_Invasibility          = 0.75;
+        m_TransferabilityIn     = 0.1;
+        m_TransferabilityOut    = 0.1;
+        m_AntibioticsResistance = 1; //deprecated, use m_DrugResistances to initialize this agents resistance to a specific drug                
+        m_MaxCount              = 300;
+        m_Potency               = EStatLevels.HIGH;
+        m_DieOffSpeed           = 1;
