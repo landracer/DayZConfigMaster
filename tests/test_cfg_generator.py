@@ -52,9 +52,7 @@ def test_generate_server_cfg_no_mods_in_cfg():
 
 
 def test_generate_instance_cfgs():
-    """Multi-instance config generation."""
-    import tkinter as tk
-
+    """Multi-instance config generation accepts both Tk variables and plain strings."""
     base_config = {
         "max_players": 60,
         "password": "secret",
@@ -64,25 +62,22 @@ def test_generate_instance_cfgs():
         "mod_paths": "@CF",
     }
 
-    root = tk.Tk()
-    root.withdraw()
-
     instances = [
         {
-            "id": tk.StringVar(value="1"),
-            "game_port": tk.StringVar(value="2302"),
-            "query_port": tk.StringVar(value="2303"),
-            "map": tk.StringVar(value="chernarusplus"),
-            "profile": tk.StringVar(value="/dayz/server1/profile"),
-            "mod_paths": tk.StringVar(value="@CF;@Mod1"),
+            "id": "1",
+            "game_port": "2302",
+            "query_port": "2303",
+            "map": "chernarusplus",
+            "profile": "/dayz/server1/profile",
+            "mod_paths": "@CF;@Mod1",
         },
         {
-            "id": tk.StringVar(value="2"),
-            "game_port": tk.StringVar(value="2402"),
-            "query_port": tk.StringVar(value="2403"),
-            "map": tk.StringVar(value="enoch"),
-            "profile": tk.StringVar(value="/dayz/server2/profile"),
-            "mod_paths": tk.StringVar(value="@CF;@Mod2"),
+            "id": "2",
+            "game_port": "2402",
+            "query_port": "2403",
+            "map": "enoch",
+            "profile": "/dayz/server2/profile",
+            "mod_paths": "@CF;@Mod2",
         },
     ]
 
@@ -96,8 +91,6 @@ def test_generate_instance_cfgs():
     assert "port = 2402;" in configs[2]
     assert 'template="dayzOffline.chernarusplus";' in configs[1]
     assert 'template="dayzOffline.enoch";' in configs[2]
-
-    root.destroy()
     print("test_generate_instance_cfgs: PASSED")
 
 

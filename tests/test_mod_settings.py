@@ -2,31 +2,20 @@
 # Copyright (c) 2026 DayzConfigMaster & landracer. All Rights Reserved.
 # https://github.com/landracer/DayZConfigMaster/LICENSE
 
-"""Unit tests for the Mod Settings tab and cfgspawnabletypes repair."""
+"""Headless unit tests for mod settings discovery and cfgspawnabletypes repair.
 
-import shutil
+These used to spin up the full Tk GUI. They now exercise the headless helpers
+so the suite passes in CI without a display.
+"""
+
 import sys
 import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-
-def _make_app():
-    import tkinter as tk
-    from tkinter import messagebox
-    from unittest.mock import patch
-
-    with patch.object(messagebox, "askyesno", return_value=False), \
-         patch.object(messagebox, "askokcancel", return_value=True), \
-         patch.object(messagebox, "showinfo"), \
-         patch.object(messagebox, "showwarning"), \
-         patch.object(messagebox, "showerror"):
-        from dayzconfigmaster.gui.app import DayzConfigMasterApp
-        root = tk.Tk()
-        root.withdraw()
-        app = DayzConfigMasterApp(root)
-        return root, app
+from dayzconfigmaster.mods.settings_discovery import detect_mod_settings_files
+from dayzconfigmaster.config.spawnabletypes_repair import repair_cfg_spawnable_types
 
 
 def test_detect_mod_settings_finds_mission_configs():
@@ -39,11 +28,7 @@ def test_detect_mod_settings_finds_mission_configs():
         (mission / "expansion" / "settings").mkdir(parents=True)
         (mission / "expansion" / "settings" / "MapSettings.json").write_text("{}")
 
-        root, app = _make_app()
-        app._get_current_mission_root = lambda: mission
-        app._get_workshop_directory = lambda: None
-        files = app._detect_mod_settings_files()
-        root.destroy()
+        files = detect_mod_settings_files(workshop_dir=None, mission_root=mission)
 
         by_mod = {}
         for mod, name, _ in files:
@@ -74,11 +59,7 @@ def test_detect_mod_settings_finds_workshop_mod_configs():
         (mod_folder / "addons" / "foo.pbo").mkdir(parents=True)
         (mod_folder / "Keys" / "foo.bikey").mkdir(parents=True)
 
-        root, app = _make_app()
-        app._get_current_mission_root = lambda: None
-        app._get_workshop_directory = lambda: str(workshop)
-        files = app._detect_mod_settings_files()
-        root.destroy()
+        files = detect_mod_settings_files(workshop_dir=str(workshop), mission_root=None)
 
         by_mod = {}
         for mod, rel, _ in files:
@@ -105,10 +86,9 @@ def test_repair_cfg_spawnable_types_fixes_invalid_comments():
         )
         (mission / "cfgspawnabletypes.xml").write_text(bad)
 
-        root, app = _make_app()
-        app._get_current_mission_root = lambda: mission
-        app._repair_cfg_spawnable_types()
-        root.destroy()
+        result = repair_cfg_spawnable_types(mission / "cfgspawnabletypes.xml")
+        assert result.success
+        assert result.changed
 
         from xml.etree import ElementTree as ET
         text = (mission / "cfgspawnabletypes.xml").read_text()
@@ -129,10 +109,9 @@ def test_repair_cfg_spawnable_types_adds_missing_wheels():
         )
         (mission / "cfgspawnabletypes.xml").write_text(bad)
 
-        root, app = _make_app()
-        app._get_current_mission_root = lambda: mission
-        app._repair_cfg_spawnable_types()
-        root.destroy()
+        result = repair_cfg_spawnable_types(mission / "cfgspawnabletypes.xml")
+        assert result.success
+        assert result.changed
 
         text = (mission / "cfgspawnabletypes.xml").read_text()
         block = text.split('<type name="OffroadHatchback">')[1].split("</type>")[0]

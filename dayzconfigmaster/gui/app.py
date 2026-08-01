@@ -84,10 +84,17 @@ try:
         _copy_bikeys,
         _create_mod_wrapper,
     )
+    from ..server.diagnostics import (
+        is_server_port_bound,
+        scan_server_log_for_errors,
+        detect_mod_version_mismatches,
+    )
     from ..logs.tailer import LogTailer
     from ..logs.diagnostics import DiagnosticsEngine
     from ..mods.pbo_builder import PboBuilder
     from ..mods.integration import ModIntegrationManager
+    from ..mods.settings_discovery import detect_mod_settings_files
+    from ..config.spawnabletypes_repair import repair_cfg_spawnable_types
     from ..utils.memory_guard import setup_memory_safety
     from ..banlist.vpp_manager import VppAdminTools
 except ImportError:
@@ -101,10 +108,17 @@ except ImportError:
             _copy_bikeys,
             _create_mod_wrapper,
         )
+        from dayzconfigmaster.server.diagnostics import (
+            is_server_port_bound,
+            scan_server_log_for_errors,
+            detect_mod_version_mismatches,
+        )
         from dayzconfigmaster.logs.tailer import LogTailer
         from dayzconfigmaster.logs.diagnostics import DiagnosticsEngine
         from dayzconfigmaster.mods.pbo_builder import PboBuilder
         from dayzconfigmaster.mods.integration import ModIntegrationManager
+        from dayzconfigmaster.mods.settings_discovery import detect_mod_settings_files
+        from dayzconfigmaster.config.spawnabletypes_repair import repair_cfg_spawnable_types
         from dayzconfigmaster.utils.memory_guard import setup_memory_safety
         from dayzconfigmaster.banlist.vpp_manager import VppAdminTools
     except ImportError:
@@ -117,10 +131,17 @@ except ImportError:
             _copy_bikeys,
             _create_mod_wrapper,
         )
+        from server.diagnostics import (
+            is_server_port_bound,
+            scan_server_log_for_errors,
+            detect_mod_version_mismatches,
+        )
         from logs.tailer import LogTailer
         from logs.diagnostics import DiagnosticsEngine
         from mods.pbo_builder import PboBuilder
         from mods.integration import ModIntegrationManager
+        from mods.settings_discovery import detect_mod_settings_files
+        from config.spawnabletypes_repair import repair_cfg_spawnable_types
         from utils.memory_guard import setup_memory_safety
         from banlist.vpp_manager import VppAdminTools
 
@@ -1986,88 +2007,10 @@ Trader2 {
 
         Returns a list of (mod_display_name, relative_file_path, file_path) tuples.
         """
-        results: List[Tuple[str, str, Path]] = []
-        seen_paths: Set[Path] = set()
-
-        # ------------------------------------------------------------------
-        # 1) Scan individual workshop mod folders.
-        # ------------------------------------------------------------------
-        workshop_dir = self._get_workshop_directory()
-        if workshop_dir:
-            content_path = Path(workshop_dir)
-            if content_path.exists():
-                for folder in sorted(content_path.iterdir()):
-                    if not folder.is_dir():
-                        continue
-                    try:
-                        _ = int(folder.name)
-                    except ValueError:
-                        continue
-
-                    display_name = self._read_workshop_display_name(folder) or folder.name
-                    for path in sorted(folder.rglob("*")):
-                        if not path.is_file():
-                            continue
-                        suffix = path.suffix.lower()
-                        if suffix not in (".json", ".xml", ".cpp", ".hpp", ".txt"):
-                            continue
-                        # Skip Steam/mod metadata and binary folders.
-                        rel_parts = path.relative_to(folder).parts
-                        first = rel_parts[0].lower()
-                        if first in ("keys", "addons"):
-                            continue
-                        if path.name.lower() in ("meta.cpp", "mod.cpp"):
-                            continue
-                        if path in seen_paths:
-                            continue
-                        seen_paths.add(path)
-                        rel_path = path.relative_to(folder).as_posix()
-                        results.append((display_name, rel_path, path))
-
-        # ------------------------------------------------------------------
-        # 2) Scan the active mission folder.
-        # ------------------------------------------------------------------
-        mission_root = self._get_current_mission_root()
-        if mission_root and mission_root.exists():
-            # Known mod settings directories and friendly names.
-            known_patterns: Dict[str, List[str]] = {
-                "Mission Core": ["*.xml", "*.json"],
-                "Mission Database": ["db/*.xml", "db/*.json"],
-                "DayZ Expansion": ["expansion/**/*.json", "expansion/**/*.xml"],
-                "TraderPlus": ["TraderPlus/*.json", "TraderPlus/*.xml"],
-            }
-
-            for mod_name, patterns in known_patterns.items():
-                for pattern in patterns:
-                    for path in sorted(mission_root.glob(pattern)):
-                        if path.is_file() and path not in seen_paths:
-                            seen_paths.add(path)
-                            rel_path = path.relative_to(mission_root).as_posix()
-                            results.append((mod_name, rel_path, path))
-
-            # Catch any other mod config folders not in the known list.
-            for path in sorted(mission_root.rglob("*")):
-                if not path.is_file() or path.suffix.lower() not in (
-                    ".json",
-                    ".xml",
-                    ".cpp",
-                    ".hpp",
-                    ".txt",
-                ):
-                    continue
-                if path in seen_paths:
-                    continue
-                rel = path.relative_to(mission_root)
-                if len(rel.parts) == 1:
-                    continue
-                if rel.parts[0].lower() == "db":
-                    continue
-                seen_paths.add(path)
-                folder = rel.parts[0]
-                rel_path = rel.as_posix()
-                results.append((folder, rel_path, path))
-
-        return results
+        return detect_mod_settings_files(
+            self._get_workshop_directory(),
+            self._get_current_mission_root(),
+        )
 
     def _get_current_mission_root(self) -> Optional[Path]:
         """Return the mission folder for the currently selected map/instance."""
@@ -2683,117 +2626,33 @@ Trader2 {
         Backs up the file, removes invalid XML comments, and ensures common
         vehicles have wheel attachments.
         """
+        from dayzconfigmaster.config.spawnabletypes_repair import RepairResult
+
         mission_root = self._get_current_mission_root()
         if mission_root is None:
             messagebox.showwarning("No Mission", "Could not locate the active mission folder.")
             return
 
         target_path = mission_root / "cfgspawnabletypes.xml"
-        if not target_path.exists():
-            messagebox.showwarning("Not Found", f"cfgspawnabletypes.xml not found at:\n{target_path}")
+        result: RepairResult = repair_cfg_spawnable_types(target_path)
+
+        if not result.success:
+            if "not found" in result.error.lower():
+                messagebox.showwarning("Not Found", result.error)
+            else:
+                messagebox.showerror("Repair Error", result.error)
             return
 
-        try:
-            text = target_path.read_text(encoding="utf-8")
-        except Exception as exc:
-            messagebox.showerror("Read Error", f"Could not read {target_path}:\n{exc}")
-            return
-
-        original_text = text
-        fixes: List[str] = []
-
-        # 1. Fix invalid XML comments that contain double dashes.
-        # The lookahead ensures we match the real closing --> (followed by a tag
-        # or end of string) rather than false --> sequences inside long dash runs.
-        def sanitize_comment(match: "re.Match[str]") -> str:
-            body = match.group(1)
-            if "--" in body:
-                clean = re.sub(r"-{2,}", "-", body)
-                return "<!-- " + clean + " -->"
-            return match.group(0)
-
-        new_text = re.sub(
-            r"<!--(.*?)-->(?=\s*<|\s*$)", sanitize_comment, text, flags=re.DOTALL
-        )
-        if new_text != text:
-            fixes.append("Removed invalid XML comments containing '--'")
-            text = new_text
-
-        # 2. Ensure common vehicles have wheel attachments.
-        vehicle_wheels = {
-            "OffroadHatchback": ("HatchbackWheel", 4),
-            "OffroadHatchback_Blue": ("HatchbackWheel", 4),
-            "OffroadHatchback_White": ("HatchbackWheel", 4),
-            "Hatchback_02": ("Hatchback_02_Wheel", 4),
-            "Hatchback_02_Blue": ("Hatchback_02_Wheel", 4),
-            "Hatchback_02_Black": ("Hatchback_02_Wheel", 4),
-            "Sedan_02": ("Sedan_02_Wheel", 4),
-            "Sedan_02_Red": ("Sedan_02_Wheel", 4),
-            "CivilianVan": ("Van_01_Wheel", 4),
-            "CivilianVan_Black": ("Van_01_Wheel", 4),
-            "CivilianVan_Wine": ("Van_01_Wheel", 4),
-            "Truck_01_Covered": ("Truck_01_Wheel", 6),
-            "Truck_01_Covered_Blue": ("Truck_01_Wheel", 6),
-            "Truck_01_Covered_Orange": ("Truck_01_Wheel", 6),
-            "Truck_01_Transport": ("Truck_01_Wheel", 6),
-            "Offroad_02": ("Offroad_02_Wheel", 4),
-            "Offroad_02_Blue": ("Offroad_02_Wheel", 4),
-            "Offroad_02_Green": ("Offroad_02_Wheel", 4),
-            "Offroad_02_Red": ("Offroad_02_Wheel", 4),
-            "Offroad_02_White": ("Offroad_02_Wheel", 4),
-        }
-
-        type_pattern = re.compile(r'<type name="([^"]+)">(.*?)</type>', re.DOTALL)
-
-        def ensure_wheels(match: "re.Match[str]") -> str:
-            name = match.group(1)
-            block = match.group(2)
-            if name not in vehicle_wheels:
-                return match.group(0)
-            wheel, count = vehicle_wheels[name]
-            if wheel in block:
-                return match.group(0)
-            attachments = "\n".join(
-                f'\t\t<attachments chance="1.00">\n'
-                f'\t\t\t<item name="{wheel}" chance="1.00" />\n'
-                f'\t\t</attachments>'
-                for _ in range(count)
-            )
-            new_block = block.rstrip() + "\n" + attachments + "\n\t"
-            return f'<type name="{name}">\n{new_block}</type>'
-
-        new_text = type_pattern.sub(ensure_wheels, text)
-        if new_text != text:
-            added = []
-            for name in vehicle_wheels:
-                if name not in original_text or vehicle_wheels[name][0] not in original_text:
-                    if name in new_text and vehicle_wheels[name][0] in new_text:
-                        added.append(name)
-            if added:
-                fixes.append(f"Added wheel attachments for {len(added)} vehicle(s)")
-            text = new_text
-
-        if text == original_text:
+        if not result.changed:
             messagebox.showinfo("No Repair Needed", "cfgspawnabletypes.xml looks healthy. No tire fixes were required.")
-            return
-
-        # Backup before writing.
-        backup_dir = mission_root / "backups" / "mission"
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_path = backup_dir / f"cfgspawnabletypes.xml.repair.{timestamp}"
-        try:
-            backup_path.write_text(original_text, encoding="utf-8")
-            target_path.write_text(text, encoding="utf-8")
-        except Exception as exc:
-            messagebox.showerror("Write Error", f"Could not write repaired file:\n{exc}")
             return
 
         self._refresh_mod_settings()
         messagebox.showinfo(
             "Repair Complete",
-            f"cfgspawnabletypes.xml repaired.\n\nFixes applied:\n" + "\n".join(f"• {f}" for f in fixes) +
-            f"\n\nBackup saved to:\n{backup_path}",
+            f"cfgspawnabletypes.xml repaired.\n\nFixes applied:\n" +
+            "\n".join(f"• {f}" for f in result.fixes) +
+            f"\n\nBackup saved to:\n{result.backup_path}",
         )
 
     def _on_mod_tree_click(self, event) -> None:
@@ -6382,131 +6241,18 @@ Requirements:
     
     def _check_server_ports_bound(self, port: int) -> bool:
         """Return True if the DayZ game port is listening on any interface."""
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.settimeout(0.5)
-                sock.bind(("0.0.0.0", port))
-                # If bind succeeds, the port is NOT in use.
-                return False
-        except OSError:
-            # Port is already bound by the server.
-            return True
-        except Exception:
-            return False
+        return is_server_port_bound(port)
 
     def _scan_server_log_for_errors(self, instance_root: Path) -> List[str]:
         """Scan the latest server RPT/log for critical startup errors."""
-        errors: List[str] = []
-        log_dir = instance_root / "profiles"
-        if not log_dir.exists():
-            log_dir = instance_root
-        try:
-            log_files = sorted(
-                glob.glob(str(log_dir / "DayZServer_*.RPT")) +
-                glob.glob(str(log_dir / "*.RPT")),
-                key=os.path.getmtime,
-                reverse=True,
-            )
-        except Exception:
-            log_files = []
-
-        if not log_files:
-            # Fallback: scan nohup.out or server_console.log in the instance root.
-            for fallback in ["nohup.out", "server_console.log"]:
-                fb_path = instance_root / fallback
-                if fb_path.exists():
-                    log_files.append(str(fb_path))
-                    break
-            if not log_files:
-                return errors
-
-        try:
-            text = Path(log_files[0]).read_text(errors="ignore")
-        except Exception:
-            return errors
-
-        # Look for the most informative script compilation errors first.
-        for pattern in [
-            r"SCRIPT\s+\(E\): Can't compile .*? script module!",
-            r"SCRIPT\s+\(E\): Failed to load mission scripts!",
-            r"Unknown type '([^']+)'",
-            r"Mission script has no main function",
-        ]:
-            for match in re.finditer(pattern, text):
-                line = match.group(0).strip()
-                if line not in errors:
-                    errors.append(line)
-                if len(errors) >= 5:
-                    break
-            if errors:
-                break
-        return errors
+        return scan_server_log_for_errors(instance_root)
 
     def _detect_mod_version_mismatches(self, instance_root: Path) -> List[str]:
         """Warn when known mod families have mismatched versions.
 
         Returns a list of human-readable warnings.
         """
-        warnings: List[str] = []
-        versions: Dict[str, Dict[str, str]] = {}
-        pattern = re.compile(r'^version\s*=\s*"([^"]+)"', re.IGNORECASE)
-
-        for wrapper in sorted(instance_root.glob("@*")):
-            mod_id = wrapper.name.lstrip("@")
-            meta_files = list(wrapper.glob("meta.cpp")) + list(wrapper.glob("mod.cpp"))
-            version = ""
-            for meta in meta_files:
-                try:
-                    for line in meta.read_text(errors="ignore").splitlines():
-                        m = pattern.match(line.strip())
-                        if m:
-                            version = m.group(1)
-                            break
-                except Exception:
-                    continue
-                if version:
-                    break
-
-            if not version:
-                continue
-
-            # Group known mod families by publisher prefix or name.
-            name = ""
-            for meta in meta_files:
-                try:
-                    for line in meta.read_text(errors="ignore").splitlines():
-                        m = re.match(r'^name\s*=\s*"([^"]+)"', line.strip())
-                        if m:
-                            name = m.group(1)
-                            break
-                except Exception:
-                    continue
-                if name:
-                    break
-
-            lower_name = name.lower()
-            family: Optional[str] = None
-            if "dayz-expansion" in lower_name:
-                family = "DayZ Expansion"
-            elif "expansion" in lower_name:
-                family = "DayZ Expansion"
-
-            if family:
-                versions.setdefault(family, {})[mod_id] = version
-
-        for family, mod_versions in versions.items():
-            if len(mod_versions) < 2:
-                continue
-            unique = set(mod_versions.values())
-            if len(unique) > 1:
-                details = ", ".join(
-                    f"@{mid}={v}" for mid, v in sorted(mod_versions.items())
-                )
-                warnings.append(
-                    f"{family} mods have mismatched versions: {details}. "
-                    "Update all of them to the same version in Steam Workshop."
-                )
-        return warnings
+        return detect_mod_version_mismatches(instance_root)
 
     def _start_server_monitor(self):
         """Begin polling ProcessController for server liveness."""

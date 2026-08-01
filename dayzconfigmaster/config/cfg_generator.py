@@ -73,6 +73,27 @@ def _normalize_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def _get_ui_value(value: Any, default: str = "") -> str:
+    """Return a string from a Tkinter variable or a plain string."""
+    if value is None:
+        return default
+    if callable(getattr(value, "get", None)):
+        result = value.get()
+        return str(result) if result is not None else default
+    return str(value) if value != "" else default
+
+
+def _get_ui_value_optional(value: Any, default: Optional[str] = None) -> Optional[str]:
+    """Return a string or None from a Tkinter variable or plain string."""
+    if value is None:
+        return default
+    if callable(getattr(value, "get", None)):
+        result = value.get()
+        return str(result) if result else default
+    result = str(value)
+    return result if result else default
+
+
 def _format_mod_paths(mod_paths: str) -> str:
     """Normalize mod path string to semicolon-separated entries."""
     if not mod_paths:
@@ -296,9 +317,12 @@ def generate_instance_cfgs(
     resolved_mods = resolved_mods or {}
 
     for instance in instances:
-        instance_id = int(instance.get("id", {}).get() or 1)
+        instance_id = int(_get_ui_value(instance.get("id", {}), "1") or 1)
 
-        display_map = instance.get("map", {}).get() or base_config.get("map_name", "")
+        display_map = _get_ui_value(
+            instance.get("map", {}),
+            base_config.get("map_name", ""),
+        )
         map_name = resolved_maps.get(display_map, display_map)
 
         # Show the selected map in the server browser instead of an instance number.
@@ -308,8 +332,8 @@ def generate_instance_cfgs(
 
         cfg_content = generate_server_cfg(
             name=instance_name,
-            port=int(instance.get("game_port", {}).get() or 2302),
-            query_port=int(instance.get("query_port", {}).get() or 2303),
+            port=int(_get_ui_value(instance.get("game_port", {}), "2302") or 2302),
+            query_port=int(_get_ui_value(instance.get("query_port", {}), "2303") or 2303),
             max_players=int(base_config.get("max_players", 60)),
             password=base_config.get("password", ""),
             password_admin=base_config.get("password_admin", ""),
@@ -335,8 +359,17 @@ def generate_instance_cfgs(
             storage_auto_fix=base_config.get("storage_auto_fix", "1"),
             verify_signatures=base_config.get("verify_signatures", "2 (Verify)"),
             force_same_build=base_config.get("force_same_build", "1 (Yes)"),
-            mod_paths=resolved_mods.get(instance_id, instance.get("mod_paths", {}).get() or base_config.get("mod_paths", "")),
-            profiles_path=instance.get("profile", {}).get() or f"./profile{instance_id}",
+            mod_paths=resolved_mods.get(
+                instance_id,
+                _get_ui_value(
+                    instance.get("mod_paths", {}),
+                    base_config.get("mod_paths", ""),
+                ),
+            ),
+            profiles_path=_get_ui_value(
+                instance.get("profile", {}),
+                f"./profile{instance_id}",
+            ),
             game_mode=base_config.get("game_mode", "Survival"),
         )
 
