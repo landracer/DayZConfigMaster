@@ -2442,6 +2442,8 @@ Trader2 {
         self._interactive_editor_visible = False
         self._cleanup_interactive_editor()
         self._mod_settings_editor.grid()
+        if hasattr(self, "_interactive_toggle_btn"):
+            self._interactive_toggle_btn.config(text="Interactive View")
         if path:
             self._mod_settings_status.config(text=f"Showing text view for {path.name}")
 
