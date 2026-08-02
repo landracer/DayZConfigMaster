@@ -89,7 +89,7 @@ class SliderWidget(ttk.Frame):
 
         ttk.Button(input_frame, text="+", width=3, command=self._increment).pack(side=tk.LEFT)
 
-        # Value display
+        # Value display (shows the raw integer value for integer settings)
         self.value_label = ttk.Label(
             self.label_frame,
             text=self._format_value(self.current_value.get()),
@@ -98,6 +98,16 @@ class SliderWidget(ttk.Frame):
         )
         self.value_label.pack(pady=(0, 5))
 
+        # Description / range hint
+        if setting.description:
+            ttk.Label(
+                self.label_frame,
+                text=setting.description,
+                foreground="gray",
+                font=("Arial", 8),
+                wraplength=400,
+            ).pack(anchor=tk.W, padx=5, pady=(0, 5))
+
         # Apply callback on focus loss and Return
         self.entry.bind("<Return>", self._apply)
         self.entry.bind("<FocusOut>", self._apply)
@@ -105,7 +115,9 @@ class SliderWidget(ttk.Frame):
 
     def _format_value(self, value: float) -> str:
         if self.is_float:
-            return f"{value:.2f}"
+            step_str = str(self.setting.step) if self.setting.step is not None else "1.0"
+            decimals = max(0, min(6, len(step_str.split(".")[-1]) if "." in step_str else 2))
+            return f"{value:.{decimals}f}"
         return str(int(value))
 
     def _validate(self, value: str) -> bool:
@@ -202,7 +214,13 @@ class NumberInputWidget(ttk.Frame):
         else:
             current_val = 0
         
-        self.current_value = tk.DoubleVar(value=float(current_val)) if self.is_float else tk.IntVar(value=int(current_val))
+        # Coerce to the correct Python type so the spinbox displays cleanly.
+        if self.is_float:
+            current_val = float(current_val)
+            self.current_value = tk.DoubleVar(value=current_val)
+        else:
+            current_val = int(current_val)
+            self.current_value = tk.IntVar(value=current_val)
         
         # Min/Max values
         min_val = setting.min_val if setting.min_val is not None else -10000
@@ -292,9 +310,13 @@ class NumberInputWidget(ttk.Frame):
     
     def _update_display(self):
         """Update the display label."""
-        val = self.current_value.get()
+        try:
+            val = self.current_value.get()
+        except tk.TclError:
+            val = 0
         if self.is_float:
-            decimals = max(0, min(6, len(str(self.setting.step).split(".")[-1]) if "." in str(self.setting.step) else 2))
+            step_str = str(self.setting.step) if self.setting.step is not None else "0.1"
+            decimals = max(0, min(6, len(step_str.split(".")[-1]) if "." in step_str else 2))
             self.display_label.config(text=f"Current: {val:.{decimals}f}")
         else:
             self.display_label.config(text=f"Current: {int(val)}")
@@ -326,8 +348,17 @@ class BoolWidget(ttk.Frame):
         self.setting = setting
         self.on_change = on_change
         
-        # Current value (default to False if None)
-        current_value = bool(setting.value) if setting.value is not None else False
+        # Current value (default to False if None). JSON configs often encode
+        # booleans as integers (0/1), so coerce those explicitly.
+        raw_value = setting.value
+        if raw_value is None:
+            current_value = False
+        elif isinstance(raw_value, bool):
+            current_value = raw_value
+        elif isinstance(raw_value, (int, float, str)):
+            current_value = str(raw_value).lower() in ("1", "true", "yes", "on")
+        else:
+            current_value = bool(raw_value)
         
         self.var = tk.BooleanVar(value=current_value)
         
