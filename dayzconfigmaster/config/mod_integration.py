@@ -76,16 +76,35 @@ VEHICLE_TEMPLATES: Dict[str, Tuple[str, int]] = {
 
 # Heuristic keywords used when scanning XML files for candidate vehicle class
 # names.  This is intentionally broad so mod-added helicopters, boats, bikes,
-# and armored vehicles are also surfaced.
+# and armored vehicles are also surfaced.  Brand/model tokens help catch
+# modern car mods (Audi_RS6_ABT, BMW_M3, etc.) even when the base name does
+# not contain a generic vehicle word.
 _VEHICLE_KEYWORDS = (
+    # Generic vehicle terms
     "car", "truck", "van", "offroad", "hatchback", "sedan", "suv", "bus",
     "bike", "motor", "moto", "quad", "atv", "uaz", "v3s", "gunter",
     "sarka", "olga", "ada", "m1025", "humvee", "tank", "apc", "heli",
     "helicopter", "plane", "boat", "ship", "vehicle",
+    # Common real-world/mod brand and model tokens
+    "audi", "bmw", "ford", "dodge", "chevrolet", "nissan", "porsche",
+    "toyota", "jeep", "gmc", "kamaz", "mitsubishi", "honda", "civic",
+    "mustang", "raptor", "bronco", "challenger", "charger", "ram",
+    "skyline", "supra", "tahoe", "runner", "lancer", "evo", "m3",
+    "rs6", "gt3", "gtr", "nismo", "typhoon", "motorhome",
 )
 _VEHICLE_RE = re.compile(
     "|".join(re.escape(k) for k in _VEHICLE_KEYWORDS),
     re.IGNORECASE,
+)
+
+# Common color/variant/camo suffixes on vehicle class names.
+_VEHICLE_VARIANT_SUFFIXES = (
+    "_Black", "_Blue", "_Red", "_White", "_Green", "_Yellow", "_Pink",
+    "_Orange", "_MidNightBlue", "_DarkBlue", "_LightBlue", "_Brown",
+    "_Purple", "_Grey", "_Gray", "_Rust", "_Hunter", "_BOSS", "_boss",
+    "_camoblack", "_camoblue", "_camogreen", "_camopink", "_camopurple",
+    "_camored", "_camowhite", "_camo", "_Apo", "_Baja", "_Halo",
+    "_Raptor", "_Roush", "_USA", "_WideOpen", "_vanished",
 )
 
 
@@ -126,7 +145,14 @@ def _looks_like_vehicle(name: str) -> bool:
 
 
 def _extract_vehicle_names_from_xml(path: Path) -> List[str]:
-    """Parse *path* and return class names that look like vehicles."""
+    """Parse *path* and return relevant class names.
+
+    For types.xml and cfgspawnabletypes.xml we return *all* <type> names so
+    that base inference (color variants + wheel matching) can identify
+    mod-added vehicles even when their class name is just a brand/model token.
+    For events.xml and classnames.txt-style XML we keep the keyword filter
+    because those files are less structured.
+    """
     try:
         text = path.read_text(encoding="utf-8", errors="ignore")
     except (OSError, PermissionError):
@@ -143,7 +169,7 @@ def _extract_vehicle_names_from_xml(path: Path) -> List[str]:
     if tag in ("types", "spawnabletypes"):
         for elem in root.iter("type"):
             name = elem.get("name")
-            if name and _looks_like_vehicle(name):
+            if name:
                 names.append(name)
 
     # <event name="..."> appears in events.xml.
@@ -153,7 +179,209 @@ def _extract_vehicle_names_from_xml(path: Path) -> List[str]:
             if name and _looks_like_vehicle(name):
                 names.append(name)
 
+    # <class name="..."> appears in some mod classnames.txt files.
+    if tag in ("classnames", ""):
+        for elem in root.iter("class"):
+            name = elem.get("name")
+            if name:
+                names.append(name)
+
     return names
+
+
+def _extract_vehicle_names_from_text(path: Path) -> List[str]:
+    """Best-effort extraction from non-XML text files like classnames.txt."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except (OSError, PermissionError):
+        return []
+    # Match either <class name="..." /> or bare quoted names used by mod docs.
+    names: List[str] = []
+    for match in re.finditer(r'class\s+name\s*=\s*"([^"]+)"', text, re.IGNORECASE):
+        name = match.group(1).strip()
+        if name:
+            names.append(name)
+    return names
+
+
+def _is_likely_vehicle_part(name: str) -> bool:
+    """Return True if *name* looks like a vehicle part rather than a vehicle.
+
+    Mods often list every door, hood, wheel, and seat alongside the actual
+    vehicle class.  These clutter the picker and will break the quick-setup
+    workflow because they have no wheel template.
+    """
+    lower = name.lower()
+    part_keywords = (
+        "wheel", "cargo", "codriver", "driver", "hood", "trunk", "door",
+        "rollbar", "engine", "light", "plate", "interior", "seat", "glass",
+        "battery", "sparkplug", "spark_plug", "oil", "brake", "radiator",
+        "fuel", "mirror", "bumper", "fender", "grill", "frame", "chassis",
+        "tail", "windshield", "carbatt", "headlight", "taillight",
+        # Common typos / abbreviated part names seen in mod class lists.
+        "codrvier", "codrv", "drvier", "drver", "drivr",
+    )
+    return any(kw in lower for kw in part_keywords)
+
+
+def _filter_vehicle_candidates(names: List[str]) -> List[str]:
+    """Remove obvious vehicle parts from a list of candidate class names."""
+    return [n for n in names if not _is_likely_vehicle_part(n)]
+
+
+def _normalize_class_name(name: str) -> str:
+    """Return an alphanumeric lowercase representation of a class name."""
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+def _longest_common_substring(a: str, b: str) -> str:
+    """Return the longest common substring of *a* and *b*."""
+    if not a or not b:
+        return ""
+    m, n = len(a), len(b)
+    longest = ""
+    lengths = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if a[i - 1] == b[j - 1]:
+                lengths[i][j] = lengths[i - 1][j - 1] + 1
+                if lengths[i][j] > len(longest):
+                    longest = a[i - lengths[i][j]:i]
+            else:
+                lengths[i][j] = 0
+    return longest
+
+
+def _find_wheel_for_base(base: str, all_names: set) -> Optional[str]:
+    """Return a wheel class name associated with *base*, if any."""
+    candidates = [
+        f"{base}_Wheel",
+        f"{base}_wheel",
+        f"{base.lower()}_wheel",
+    ]
+    for wheel in candidates:
+        if wheel in all_names:
+            return wheel
+
+    base_norm = _normalize_class_name(base)
+    if not base_norm:
+        return None
+
+    wheels = [n for n in all_names if "wheel" in n.lower()]
+    best: Optional[str] = None
+    best_score = 0
+    MIN_SUBSTRING_LEN = 6
+
+    for wheel in wheels:
+        wheel_norm = _normalize_class_name(wheel.replace("wheel", "").replace("Wheel", ""))
+        if not wheel_norm:
+            continue
+
+        # Direct substring containment (catches FordBronco -> bronco_wheel).
+        if base_norm in wheel_norm or wheel_norm in base_norm:
+            return wheel
+
+        # Longest common substring (catches NissanGTRCustom -> NissanGTRNismo_Wheel).
+        lcs = _longest_common_substring(base_norm, wheel_norm)
+        if len(lcs) >= MIN_SUBSTRING_LEN and len(lcs) > best_score:
+            best_score = len(lcs)
+            best = wheel
+
+    return best
+
+
+def _group_by_base_prefix(names: List[str]) -> Dict[str, List[str]]:
+    """Group class names by their longest shared base prefix.
+
+    The base prefix is inferred even when the plain base class is not listed
+    in the source data.  For example, `Audi_RS6_ABT_Black`,
+    `Audi_RS6_ABT_Blue`, and `Audi_RS6_ABT_Wheel` all share the synthetic
+    base `Audi_RS6_ABT`.
+    """
+    names_set = set(names)
+
+    def longest_common_base(a: str, b: str) -> Optional[str]:
+        """Return longest shared prefix ending at an underscore, if any."""
+        i = 0
+        limit = min(len(a), len(b))
+        while i < limit and a[i] == b[i]:
+            i += 1
+        # Back up to the last underscore so we split on class-name boundaries.
+        while i > 0 and a[i - 1] != "_":
+            i -= 1
+        if i <= 0:
+            return None
+        return a[:i - 1]
+
+    # Map each name to its longest shared base with any other name.
+    name_to_base: Dict[str, Optional[str]] = {name: None for name in names_set}
+    for name in names_set:
+        if _is_likely_vehicle_part(name):
+            continue
+        best_base: Optional[str] = None
+        for other in names_set:
+            if other == name or _is_likely_vehicle_part(other):
+                continue
+            base = longest_common_base(name, other)
+            if base is not None and len(base) > (len(best_base) if best_base else 0):
+                best_base = base
+        name_to_base[name] = best_base
+
+    groups: Dict[str, List[str]] = {}
+    for name, base in name_to_base.items():
+        if base is not None and not _is_likely_vehicle_part(base):
+            groups.setdefault(base, []).append(name)
+        else:
+            groups.setdefault(name, [])
+    return groups
+
+
+def _infer_vehicle_bases(names: List[str]) -> List[str]:
+    """Infer whole-vehicle base names from a list of class names.
+
+    Uses prefix grouping so custom skin suffixes do not need to be listed
+    explicitly.  Returns only base names; color variants and wheels are used
+    as evidence but not returned.  Standalone names that look like vehicles
+    (e.g. `ModdedTruck`) are also kept.
+    """
+    names_set = set(names)
+    groups = _group_by_base_prefix(names)
+
+    vehicles: set = set()
+    for base, variants in groups.items():
+        if _is_likely_vehicle_part(base):
+            continue
+        has_wheel = _find_wheel_for_base(base, names_set) is not None
+        # Keep bases that have multiple variants or a matching wheel.
+        if len(variants) >= 2 or has_wheel:
+            vehicles.add(base)
+        # Keep standalone names that look like vehicles.
+        elif not variants and _looks_like_vehicle(base):
+            vehicles.add(base)
+
+    return sorted(vehicles)
+
+
+def _scan_folder_for_vehicles(folder: Path) -> List[str]:
+    """Recursively scan a mod/mission folder for vehicle class names."""
+    names: List[str] = []
+    # Search depth-limited: avoid crawling huge PBO/binary dumps.
+    for path in folder.rglob("*"):
+        if not path.is_file():
+            continue
+        if path.stat().st_size > 5 * 1024 * 1024:
+            continue  # Skip files larger than 5 MB.
+        rel_parts = path.relative_to(folder).parts
+        # Stay within a few levels of mod metadata/config folders.
+        if len(rel_parts) > 4:
+            continue
+        suffix = path.suffix.lower()
+        if suffix == ".xml":
+            names.extend(_extract_vehicle_names_from_xml(path))
+        elif suffix == ".txt" and path.name.lower() == "classnames.txt":
+            names.extend(_extract_vehicle_names_from_text(path))
+    # Pass unfiltered names so wheel classes can be used to identify bases.
+    return _infer_vehicle_bases(names)
 
 
 def discover_vehicle_classes(
@@ -164,8 +392,8 @@ def discover_vehicle_classes(
 
     Discovers candidate vehicle class names from:
       * built-in vanilla templates (e.g. OffroadHatchback)
-      * the active mission's XML files
-      * workshop mod folders that ship XML fragments
+      * the active mission's XML files and config subfolders
+      * workshop mod folders that ship XML fragments or classnames.txt
 
     The returned dict is stable: vanilla templates are included first, then
     mission-derived names, then workshop-derived names.  Workshop entries are
@@ -177,15 +405,22 @@ def discover_vehicle_classes(
     for name in VEHICLE_TEMPLATES:
         results[name] = "Vanilla template"
 
-    # 2) Active mission XML files.
+    # 2) Active mission XML files and config subfolders.
     if mission_root is not None and mission_root.exists():
+        root_names: List[str] = []
+        root_sources: Dict[str, str] = {}
         for xml_name in ("types.xml", "cfgspawnabletypes.xml", "events.xml"):
             path = mission_root / xml_name
-            if not path.exists():
-                continue
-            for name in _extract_vehicle_names_from_xml(path):
-                if name not in results:
-                    results[name] = f"Mission: {xml_name}"
+            if path.exists():
+                for name in _extract_vehicle_names_from_xml(path):
+                    root_names.append(name)
+                    root_sources.setdefault(name, f"Mission: {xml_name}")
+        for name in _infer_vehicle_bases(root_names):
+            if name not in results:
+                results[name] = root_sources.get(name, "Mission XML")
+        for name in _scan_folder_for_vehicles(mission_root):
+            if name not in results:
+                results[name] = "Mission config"
 
     # 3) Workshop mod folders.
     if workshop_dir is not None and workshop_dir.exists():
@@ -193,13 +428,20 @@ def discover_vehicle_classes(
             if not folder.is_dir() or not _is_workshop_mod_id(folder.name):
                 continue
             display_name = _read_workshop_display_name(folder) or folder.name
+            root_names = []
+            root_sources = {}
             for xml_name in ("types.xml", "cfgspawnabletypes.xml", "events.xml"):
                 path = folder / xml_name
-                if not path.exists():
-                    continue
-                for name in _extract_vehicle_names_from_xml(path):
-                    if name not in results:
-                        results[name] = display_name
+                if path.exists():
+                    for name in _extract_vehicle_names_from_xml(path):
+                        root_names.append(name)
+                        root_sources.setdefault(name, display_name)
+            for name in _infer_vehicle_bases(root_names):
+                if name not in results:
+                    results[name] = root_sources.get(name, display_name)
+            for name in _scan_folder_for_vehicles(folder):
+                if name not in results:
+                    results[name] = display_name
 
     return results
 
@@ -472,6 +714,14 @@ class ModIntegrationWorkflow:
         """Return the list of changes needed for a vehicle mod."""
         actions: List[IntegrationAction] = []
 
+        if _is_likely_vehicle_part(vehicle_class_name):
+            actions.append(IntegrationAction(
+                "validation",
+                f"{vehicle_class_name} looks like a vehicle part, not a whole vehicle. "
+                "Quick Setup is meant for vehicle class names only.",
+            ))
+            return actions
+
         if not self.editor.file_exists("events.xml"):
             actions.append(IntegrationAction(
                 "events.xml",
@@ -511,9 +761,23 @@ class ModIntegrationWorkflow:
         """Apply all XML changes needed to enable a vehicle mod."""
         actions: List[IntegrationAction] = []
 
-        def add_action(name: str, ok: bool, description: str) -> None:
+        if _is_likely_vehicle_part(vehicle_class_name):
             actions.append(IntegrationAction(
-                name, description, applied=ok, error="" if ok else "Failed to apply change",
+                "validation",
+                f"{vehicle_class_name} looks like a vehicle part, not a whole vehicle. "
+                "Quick Setup is meant for vehicle class names only.",
+                applied=False,
+                error="Vehicle part selected",
+            ))
+            return IntegrationResult(
+                success=False,
+                actions=actions,
+                backup_dir=self.editor.mission_root / "backups" / "integration",
+            )
+
+        def add_action(name: str, ok: bool, description: str, error: str = "") -> None:
+            actions.append(IntegrationAction(
+                name, description, applied=ok, error="" if ok else (error or "Failed to apply change"),
             ))
 
         ok = self.editor.enable_vehicle_spawning(vehicle_class_name, active=True)
@@ -522,7 +786,12 @@ class ModIntegrationWorkflow:
         ok = self.editor.add_vehicle_attachments(vehicle_class_name)
         if not ok:
             ok = self.editor.define_spawnable_type(vehicle_class_name, [])
-        add_action("cfgspawnabletypes.xml", ok, f"Define spawnable type for {vehicle_class_name}")
+        add_action(
+            "cfgspawnabletypes.xml",
+            ok,
+            f"Define spawnable type for {vehicle_class_name}",
+            error="No wheel template; wheels must be configured manually",
+        )
 
         ok = self.editor.add_vehicle_to_types_xml(vehicle_class_name)
         add_action("types.xml", ok, f"Add {vehicle_class_name} to types.xml")

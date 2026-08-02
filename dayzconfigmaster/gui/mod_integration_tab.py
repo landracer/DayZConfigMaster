@@ -157,6 +157,19 @@ class ModIntegrationTab:
             self._source_var.set("Type or select a vehicle class name.")
             return
 
+        # Import here to avoid a circular import at module load time.
+        try:
+            from ..config.mod_integration import _is_likely_vehicle_part
+        except ImportError:
+            from dayzconfigmaster.config.mod_integration import _is_likely_vehicle_part
+
+        if _is_likely_vehicle_part(name):
+            self._source_var.set(
+                "Warning: this looks like a vehicle part, not a whole vehicle. "
+                "Quick Setup is meant for vehicle class names only."
+            )
+            return
+
         source = self._vehicle_sources.get(name)
         if source:
             self._source_var.set(f"Source: {source}")

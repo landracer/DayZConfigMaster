@@ -166,6 +166,64 @@ def test_workflow_discovers_vehicles():
         assert "OffroadHatchback" in names
 
 
+def test_discover_vehicle_classes_from_workshop_subfolder():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        workshop = Path(tmpdir) / "workshop"
+        mod = workshop / "123456789"
+        types_dir = mod / "Types"
+        types_dir.mkdir(parents=True)
+        (mod / "meta.cpp").write_text('name = "Awesome Vehicles";')
+        (types_dir / "awesome_types.xml").write_text(
+            "<types>"
+            '<type name="AwesomeCar_Black"/>'
+            '<type name="AwesomeCar_Blue"/>'
+            '<type name="AwesomeCar_Wheel"/>'
+            '<type name="AwesomeCar_Hood"/>'
+            "</types>"
+        )
+
+        found = discover_vehicle_classes(workshop_dir=workshop)
+        assert "AwesomeCar" in found
+        assert found["AwesomeCar"] == "Awesome Vehicles"
+        assert "AwesomeCar_Hood" not in found
+
+
+def test_discover_vehicle_classes_fuzzy_wheel_mapping():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        workshop = Path(tmpdir) / "workshop"
+        mod = workshop / "123456789"
+        mod.mkdir(parents=True)
+        (mod / "meta.cpp").write_text('name = "Fuzzy Motors";')
+        (mod / "types.xml").write_text(
+            "<types>"
+            '<type name="Ford_Mustang_Shelby_GT500_Black"/>'
+            '<type name="Ford_Mustang_Shelby_GT500_Blue"/>'
+            '<type name="FordShelbyGT500_Wheel"/>'
+            "</types>"
+        )
+
+        found = discover_vehicle_classes(workshop_dir=workshop)
+        assert "Ford_Mustang_Shelby_GT500" in found
+        assert found["Ford_Mustang_Shelby_GT500"] == "Fuzzy Motors"
+
+
+def test_workflow_rejects_vehicle_part():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "events.xml").write_text("<events></events>")
+        (root / "cfgspawnabletypes.xml").write_text("<spawnabletypes></spawnabletypes>")
+        (root / "types.xml").write_text("<types></types>")
+        workflow = ModIntegrationWorkflow(root)
+
+        actions = workflow.detect_actions("CarRadiator")
+        assert len(actions) == 1
+        assert actions[0].file_name == "validation"
+
+        result = workflow.integrate_vehicle_mod("CarRadiator")
+        assert not result.ok
+        assert any(a.file_name == "validation" for a in result.actions)
+
+
 if __name__ == "__main__":
     test_enable_vehicle_spawning_creates_event()
     test_define_spawnable_type_with_attachments()
@@ -177,4 +235,7 @@ if __name__ == "__main__":
     test_discover_vehicle_classes_from_mission_xml()
     test_discover_vehicle_classes_from_workshop_mod()
     test_workflow_discovers_vehicles()
+    test_discover_vehicle_classes_from_workshop_subfolder()
+    test_discover_vehicle_classes_fuzzy_wheel_mapping()
+    test_workflow_rejects_vehicle_part()
     print("All mod integration workflow tests passed!")
