@@ -1294,7 +1294,11 @@ Trader2 {
         integration_frame.columnconfigure(0, weight=1)
         integration_frame.rowconfigure(0, weight=1)
         self._server_config_notebook.add(integration_frame, text="Vehicle Quick Setup")
-        self._mod_integration_tab = ModIntegrationTab(integration_frame, self._get_current_mission_root)
+        self._mod_integration_tab = ModIntegrationTab(
+            integration_frame,
+            self._get_current_mission_root,
+            self._get_workshop_directory,
+        )
 
         # Auto-refresh Mod Settings when its tab is selected so it always
         # reflects the currently chosen map/instance.

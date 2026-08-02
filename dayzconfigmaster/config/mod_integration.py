@@ -12,6 +12,7 @@ it can be unit-tested and reused outside the GUI.
 
 from __future__ import annotations
 
+import re
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -71,6 +72,136 @@ VEHICLE_TEMPLATES: Dict[str, Tuple[str, int]] = {
     "Offroad_02_Red": ("Offroad_02_Wheel", 4),
     "Offroad_02_White": ("Offroad_02_Wheel", 4),
 }
+
+
+# Heuristic keywords used when scanning XML files for candidate vehicle class
+# names.  This is intentionally broad so mod-added helicopters, boats, bikes,
+# and armored vehicles are also surfaced.
+_VEHICLE_KEYWORDS = (
+    "car", "truck", "van", "offroad", "hatchback", "sedan", "suv", "bus",
+    "bike", "motor", "moto", "quad", "atv", "uaz", "v3s", "gunter",
+    "sarka", "olga", "ada", "m1025", "humvee", "tank", "apc", "heli",
+    "helicopter", "plane", "boat", "ship", "vehicle",
+)
+_VEHICLE_RE = re.compile(
+    "|".join(re.escape(k) for k in _VEHICLE_KEYWORDS),
+    re.IGNORECASE,
+)
+
+
+def _is_workshop_mod_id(name: str) -> bool:
+    """Return True if *name* looks like a numeric Steam Workshop item id."""
+    try:
+        int(name)
+        return True
+    except ValueError:
+        return False
+
+
+def _read_workshop_display_name(folder: Path) -> Optional[str]:
+    """Read the display name from a workshop item's meta.cpp or mod.cpp."""
+    name_re = re.compile(
+        r'^\s*name\s*=\s*["\'](.+?)["\']\s*;',
+        re.IGNORECASE | re.MULTILINE,
+    )
+    for filename in ("meta.cpp", "mod.cpp"):
+        filepath = folder / filename
+        if not filepath.exists():
+            continue
+        try:
+            content = filepath.read_text(encoding="utf-8", errors="ignore")
+            match = name_re.search(content)
+            if match:
+                value = match.group(1).strip()
+                if value and not value.startswith(("$", "#")):
+                    return value
+        except (OSError, PermissionError):
+            pass
+    return None
+
+
+def _looks_like_vehicle(name: str) -> bool:
+    """Return True if *name* matches the vehicle keyword heuristic."""
+    return bool(_VEHICLE_RE.search(name))
+
+
+def _extract_vehicle_names_from_xml(path: Path) -> List[str]:
+    """Parse *path* and return class names that look like vehicles."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except (OSError, PermissionError):
+        return []
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return []
+
+    names: List[str] = []
+    tag = root.tag.lower() if root.tag else ""
+
+    # <type name="..."> appears in types.xml and cfgspawnabletypes.xml.
+    if tag in ("types", "spawnabletypes"):
+        for elem in root.iter("type"):
+            name = elem.get("name")
+            if name and _looks_like_vehicle(name):
+                names.append(name)
+
+    # <event name="..."> appears in events.xml.
+    if tag == "events":
+        for elem in root.iter("event"):
+            name = elem.get("name")
+            if name and _looks_like_vehicle(name):
+                names.append(name)
+
+    return names
+
+
+def discover_vehicle_classes(
+    mission_root: Optional[Path] = None,
+    workshop_dir: Optional[Path] = None,
+) -> Dict[str, str]:
+    """Return a mapping of vehicle class name to a human-readable source.
+
+    Discovers candidate vehicle class names from:
+      * built-in vanilla templates (e.g. OffroadHatchback)
+      * the active mission's XML files
+      * workshop mod folders that ship XML fragments
+
+    The returned dict is stable: vanilla templates are included first, then
+    mission-derived names, then workshop-derived names.  Workshop entries are
+    keyed by the mod's display name (read from meta.cpp/mod.cpp) when possible.
+    """
+    results: Dict[str, str] = {}
+
+    # 1) Vanilla templates are always available as a baseline.
+    for name in VEHICLE_TEMPLATES:
+        results[name] = "Vanilla template"
+
+    # 2) Active mission XML files.
+    if mission_root is not None and mission_root.exists():
+        for xml_name in ("types.xml", "cfgspawnabletypes.xml", "events.xml"):
+            path = mission_root / xml_name
+            if not path.exists():
+                continue
+            for name in _extract_vehicle_names_from_xml(path):
+                if name not in results:
+                    results[name] = f"Mission: {xml_name}"
+
+    # 3) Workshop mod folders.
+    if workshop_dir is not None and workshop_dir.exists():
+        for folder in sorted(workshop_dir.iterdir()):
+            if not folder.is_dir() or not _is_workshop_mod_id(folder.name):
+                continue
+            display_name = _read_workshop_display_name(folder) or folder.name
+            for xml_name in ("types.xml", "cfgspawnabletypes.xml", "events.xml"):
+                path = folder / xml_name
+                if not path.exists():
+                    continue
+                for name in _extract_vehicle_names_from_xml(path):
+                    if name not in results:
+                        results[name] = display_name
+
+    return results
 
 
 def _backup_path(target: Path) -> Path:
@@ -328,6 +459,14 @@ class ModIntegrationWorkflow:
 
     def __init__(self, mission_root: Path):
         self.editor = XmlConfigEditor(mission_root)
+
+    def discover_vehicles(
+        self,
+        workshop_dir: Optional[Path] = None,
+    ) -> List[Tuple[str, str]]:
+        """Return a sorted list of (vehicle_class_name, source) tuples."""
+        found = discover_vehicle_classes(self.editor.mission_root, workshop_dir)
+        return sorted(found.items())
 
     def detect_actions(self, vehicle_class_name: str) -> List[IntegrationAction]:
         """Return the list of changes needed for a vehicle mod."""

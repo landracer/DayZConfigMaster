@@ -11,6 +11,7 @@ from dayzconfigmaster.config.mod_integration import (
     XmlConfigEditor,
     ModIntegrationWorkflow,
     VEHICLE_TEMPLATES,
+    discover_vehicle_classes,
 )
 
 
@@ -105,6 +106,66 @@ def test_workflow_unknown_vehicle_still_applies():
         assert types_action.applied
 
 
+def test_discover_vehicle_classes_includes_vanilla_templates():
+    found = discover_vehicle_classes()
+    assert "OffroadHatchback" in found
+    assert found["OffroadHatchback"] == "Vanilla template"
+
+
+def test_discover_vehicle_classes_from_mission_xml():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "types.xml").write_text(
+            "<types><type name=\"ModdedTruck\"/><type name=\"PlainRock\"/>"
+            "<type name=\"OffroadHatchback\"/></types>"
+        )
+        (root / "events.xml").write_text(
+            "<events><event name=\"ModdedHeli\"/><event name=\"AnimalSpawn\"/></events>"
+        )
+        found = discover_vehicle_classes(mission_root=root)
+
+        assert "ModdedTruck" in found
+        assert found["ModdedTruck"] == "Mission: types.xml"
+        assert "ModdedHeli" in found
+        assert found["ModdedHeli"] == "Mission: events.xml"
+        assert "PlainRock" not in found
+        assert "AnimalSpawn" not in found
+        # Vanilla template source should not be overwritten by mission XML.
+        assert found["OffroadHatchback"] == "Vanilla template"
+
+
+def test_discover_vehicle_classes_from_workshop_mod():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        workshop = Path(tmpdir) / "workshop"
+        mod = workshop / "123456789"
+        mod.mkdir(parents=True)
+        (mod / "meta.cpp").write_text('name = "Awesome Vehicles";')
+        (mod / "types.xml").write_text(
+            "<types><type name=\"AwesomeCar\"/><type name=\"AwesomeHat\"/></types>"
+        )
+
+        found = discover_vehicle_classes(workshop_dir=workshop)
+        assert "AwesomeCar" in found
+        assert found["AwesomeCar"] == "Awesome Vehicles"
+        assert "AwesomeHat" not in found
+
+
+def test_workflow_discovers_vehicles():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "events.xml").write_text("<events></events>")
+        (root / "cfgspawnabletypes.xml").write_text("<spawnabletypes></spawnabletypes>")
+        (root / "types.xml").write_text(
+            "<types><type name=\"MissionCar\"/></types>"
+        )
+        workflow = ModIntegrationWorkflow(root)
+        discovered = workflow.discover_vehicles()
+
+        names = {name for name, _ in discovered}
+        assert "MissionCar" in names
+        assert "OffroadHatchback" in names
+
+
 if __name__ == "__main__":
     test_enable_vehicle_spawning_creates_event()
     test_define_spawnable_type_with_attachments()
@@ -112,4 +173,8 @@ if __name__ == "__main__":
     test_workflow_detects_missing_changes()
     test_workflow_integrates_vehicle_mod()
     test_workflow_unknown_vehicle_still_applies()
+    test_discover_vehicle_classes_includes_vanilla_templates()
+    test_discover_vehicle_classes_from_mission_xml()
+    test_discover_vehicle_classes_from_workshop_mod()
+    test_workflow_discovers_vehicles()
     print("All mod integration workflow tests passed!")

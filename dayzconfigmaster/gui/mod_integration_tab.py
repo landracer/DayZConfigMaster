@@ -7,7 +7,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Optional, Callable, Dict
 
 
 def _import_workflow():
@@ -18,24 +18,43 @@ def _import_workflow():
     return ModIntegrationWorkflow
 
 
+def _import_templates():
+    try:
+        from ..config.mod_integration import VEHICLE_TEMPLATES
+    except ImportError:
+        from dayzconfigmaster.config.mod_integration import VEHICLE_TEMPLATES
+    return VEHICLE_TEMPLATES
+
+
 ModIntegrationWorkflow = _import_workflow()
+VEHICLE_TEMPLATES = _import_templates()
 
 
 class ModIntegrationTab:
     """Tab that detects and applies XML changes required by mods."""
 
-    def __init__(self, parent: ttk.Frame, get_mission_root: Callable[[], Optional[Path]]):
+    def __init__(
+        self,
+        parent: ttk.Frame,
+        get_mission_root: Callable[[], Optional[Path]],
+        get_workshop_dir: Optional[Callable[[], Optional[str]]] = None,
+    ):
         self.parent = parent
         self.get_mission_root = get_mission_root
+        self.get_workshop_dir = get_workshop_dir
         self.workflow: Optional[ModIntegrationWorkflow] = None
+        self._vehicle_sources: Dict[str, str] = {}
 
         parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(2, weight=1)
+        parent.rowconfigure(3, weight=1)
 
         self._build_header()
         self._build_vehicle_selector()
         self._build_actions_tree()
         self._build_status()
+
+        # Populate the vehicle picker once the UI exists.
+        self.parent.after(50, self._refresh_vehicles)
 
     def _build_header(self) -> None:
         header = ttk.Label(
@@ -54,16 +73,34 @@ class ModIntegrationTab:
         desc.grid(row=1, column=0, sticky=tk.EW, padx=10, pady=(0, 10))
 
     def _build_vehicle_selector(self) -> None:
-        selector = ttk.Frame(self.parent)
+        selector = ttk.LabelFrame(self.parent, text="Vehicle Selection", padding=5)
         selector.grid(row=2, column=0, sticky=tk.EW, padx=10, pady=5)
+        selector.columnconfigure(1, weight=1)
 
-        ttk.Label(selector, text="Vehicle Class Name:").pack(side=tk.LEFT, padx=(0, 5))
-        self._vehicle_var = tk.StringVar(value="OffroadHatchback")
-        self._vehicle_entry = ttk.Entry(selector, textvariable=self._vehicle_var, width=30)
-        self._vehicle_entry.pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Label(selector, text="Vehicle Class:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        self._vehicle_var = tk.StringVar(value="")
+        self._vehicle_combo = ttk.Combobox(
+            selector,
+            textvariable=self._vehicle_var,
+            width=40,
+            state="normal",
+        )
+        self._vehicle_combo.grid(row=0, column=1, sticky=tk.EW, padx=(0, 10))
+        self._vehicle_combo.bind("<<ComboboxSelected>>", self._on_vehicle_selected)
+        self._vehicle_combo.bind("<KeyRelease>", self._on_vehicle_selected)
 
-        ttk.Button(selector, text="Detect Required Changes", command=self._detect).pack(side=tk.LEFT, padx=2)
-        ttk.Button(selector, text="Apply All Changes", command=self._apply).pack(side=tk.LEFT, padx=2)
+        ttk.Button(selector, text="Refresh List", command=self._refresh_vehicles).grid(row=0, column=2, padx=2)
+        ttk.Button(selector, text="Detect Required Changes", command=self._detect).grid(row=0, column=3, padx=2)
+        ttk.Button(selector, text="Apply All Changes", command=self._apply).grid(row=0, column=4, padx=2)
+
+        self._source_var = tk.StringVar(value="")
+        self._source_label = ttk.Label(
+            selector,
+            textvariable=self._source_var,
+            foreground="gray",
+            wraplength=800,
+        )
+        self._source_label.grid(row=1, column=0, columnspan=5, sticky=tk.EW, pady=(5, 0))
 
     def _build_actions_tree(self) -> None:
         tree_frame = ttk.LabelFrame(self.parent, text="Required Actions", padding=5)
@@ -85,6 +122,50 @@ class ModIntegrationTab:
     def _build_status(self) -> None:
         self._status = ttk.Label(self.parent, text="", foreground="gray")
         self._status.grid(row=4, column=0, sticky=tk.EW, padx=10, pady=(5, 10))
+
+    def _get_workshop_path(self) -> Optional[Path]:
+        if self.get_workshop_dir is None:
+            return None
+        raw = self.get_workshop_dir()
+        if not raw:
+            return None
+        return Path(raw)
+
+    def _refresh_vehicles(self) -> None:
+        if not self._ensure_workflow():
+            return
+
+        workshop_path = self._get_workshop_path()
+        self._vehicle_sources = dict(self.workflow.discover_vehicles(workshop_path))
+        self._vehicle_combo["values"] = sorted(self._vehicle_sources.keys())
+
+        if self._vehicle_sources:
+            self._status.config(
+                text=f"Found {len(self._vehicle_sources)} vehicle class(es).",
+                foreground="gray",
+            )
+        else:
+            self._status.config(
+                text="No vehicle classes discovered. Type a class name manually or check your Workshop Directory.",
+                foreground="orange",
+            )
+        self._on_vehicle_selected()
+
+    def _on_vehicle_selected(self, event=None) -> None:
+        name = self._vehicle_var.get().strip()
+        if not name:
+            self._source_var.set("Type or select a vehicle class name.")
+            return
+
+        source = self._vehicle_sources.get(name)
+        if source:
+            self._source_var.set(f"Source: {source}")
+        elif name in VEHICLE_TEMPLATES:
+            self._source_var.set("Source: Vanilla template")
+        else:
+            self._source_var.set(
+                "Source: Custom entry (no wheel template; wheels must be configured manually)"
+            )
 
     def _ensure_workflow(self) -> bool:
         root = self.get_mission_root()
