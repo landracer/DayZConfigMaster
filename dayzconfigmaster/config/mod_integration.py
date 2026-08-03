@@ -290,7 +290,7 @@ def _find_wheel_for_base(base: str, all_names: set) -> Optional[str]:
     return best
 
 
-def _group_by_base_prefix(names: List[str]) -> Dict[str, List[str]]:
+def _group_by_base_prefix(names: List[str], all_names: Optional[set] = None) -> Dict[str, List[str]]:
     """Group class names by their longest shared base prefix.
 
     The base prefix is inferred even when the plain base class is not listed
@@ -299,6 +299,7 @@ def _group_by_base_prefix(names: List[str]) -> Dict[str, List[str]]:
     base `Audi_RS6_ABT`.
     """
     names_set = set(names)
+    lookup = all_names if all_names is not None else names_set
 
     def longest_common_base(a: str, b: str) -> Optional[str]:
         """Return longest shared prefix ending at an underscore, if any."""
@@ -319,7 +320,7 @@ def _group_by_base_prefix(names: List[str]) -> Dict[str, List[str]]:
         if _is_likely_vehicle_part(name):
             continue
         best_base: Optional[str] = None
-        for other in names_set:
+        for other in lookup:
             if other == name or _is_likely_vehicle_part(other):
                 continue
             base = longest_common_base(name, other)
@@ -336,7 +337,7 @@ def _group_by_base_prefix(names: List[str]) -> Dict[str, List[str]]:
     return groups
 
 
-def _infer_vehicle_bases(names: List[str]) -> List[str]:
+def _infer_vehicle_bases(names: List[str], all_names: Optional[set] = None) -> List[str]:
     """Infer whole-vehicle base names from a list of class names.
 
     Uses prefix grouping so custom skin suffixes do not need to be listed
@@ -345,13 +346,14 @@ def _infer_vehicle_bases(names: List[str]) -> List[str]:
     (e.g. `ModdedTruck`) are also kept.
     """
     names_set = set(names)
-    groups = _group_by_base_prefix(names)
+    lookup = all_names if all_names is not None else names_set
+    groups = _group_by_base_prefix(names, lookup)
 
     vehicles: set = set()
     for base, variants in groups.items():
         if _is_likely_vehicle_part(base):
             continue
-        has_wheel = _find_wheel_for_base(base, names_set) is not None
+        has_wheel = _find_wheel_for_base(base, lookup) is not None
         # Keep bases that have multiple variants or a matching wheel.
         if len(variants) >= 2 or has_wheel:
             vehicles.add(base)
@@ -362,24 +364,38 @@ def _infer_vehicle_bases(names: List[str]) -> List[str]:
     return sorted(vehicles)
 
 
-def _scan_folder_for_vehicles(folder: Path) -> List[str]:
-    """Recursively scan a mod/mission folder for vehicle class names."""
-    names: List[str] = []
-    # Search depth-limited: avoid crawling huge PBO/binary dumps.
+def _collect_class_names_from_folder(folder: Path) -> set:
+    """Return every class name found in *folder* (mod or mission)."""
+    names: set = set()
     for path in folder.rglob("*"):
         if not path.is_file():
             continue
         if path.stat().st_size > 5 * 1024 * 1024:
-            continue  # Skip files larger than 5 MB.
+            continue
         rel_parts = path.relative_to(folder).parts
-        # Stay within a few levels of mod metadata/config folders.
         if len(rel_parts) > 4:
             continue
         suffix = path.suffix.lower()
         if suffix == ".xml":
-            names.extend(_extract_vehicle_names_from_xml(path))
+            names.update(_extract_vehicle_names_from_xml(path))
         elif suffix == ".txt" and path.name.lower() == "classnames.txt":
-            names.extend(_extract_vehicle_names_from_text(path))
+            names.update(_extract_vehicle_names_from_text(path))
+    return names
+
+
+def _collect_class_names_from_workshop(workshop_dir: Path) -> set:
+    """Return every class name found across all workshop mod folders."""
+    all_names: set = set()
+    for folder in sorted(workshop_dir.iterdir()):
+        if not folder.is_dir() or not _is_workshop_mod_id(folder.name):
+            continue
+        all_names.update(_collect_class_names_from_folder(folder))
+    return all_names
+
+
+def _scan_folder_for_vehicles(folder: Path) -> List[str]:
+    """Recursively scan a mod/mission folder for vehicle class names."""
+    names = list(_collect_class_names_from_folder(folder))
     # Pass unfiltered names so wheel classes can be used to identify bases.
     return _infer_vehicle_bases(names)
 
@@ -424,10 +440,12 @@ def discover_vehicle_classes(
 
     # 3) Workshop mod folders.
     if workshop_dir is not None and workshop_dir.exists():
+        all_workshop_names = _collect_class_names_from_workshop(workshop_dir)
         for folder in sorted(workshop_dir.iterdir()):
             if not folder.is_dir() or not _is_workshop_mod_id(folder.name):
                 continue
             display_name = _read_workshop_display_name(folder) or folder.name
+            folder_names = _collect_class_names_from_folder(folder)
             root_names = []
             root_sources = {}
             for xml_name in ("types.xml", "cfgspawnabletypes.xml", "events.xml"):
@@ -436,10 +454,13 @@ def discover_vehicle_classes(
                     for name in _extract_vehicle_names_from_xml(path):
                         root_names.append(name)
                         root_sources.setdefault(name, display_name)
-            for name in _infer_vehicle_bases(root_names):
+            # Use the per-mod names for source attribution, but the full
+            # workshop set for wheel matching so cross-file wheel references
+            # inside a mod are resolved.
+            for name in _infer_vehicle_bases(root_names + list(folder_names)):
                 if name not in results:
                     results[name] = root_sources.get(name, display_name)
-            for name in _scan_folder_for_vehicles(folder):
+            for name in _infer_vehicle_bases(list(folder_names), all_workshop_names):
                 if name not in results:
                     results[name] = display_name
 
@@ -699,16 +720,35 @@ class XmlConfigEditor:
 class ModIntegrationWorkflow:
     """High-level workflow for integrating a mod's XML requirements."""
 
-    def __init__(self, mission_root: Path):
+    def __init__(self, mission_root: Path, workshop_dir: Optional[Path] = None):
         self.editor = XmlConfigEditor(mission_root)
+        self.workshop_dir = workshop_dir
 
     def discover_vehicles(
         self,
         workshop_dir: Optional[Path] = None,
     ) -> List[Tuple[str, str]]:
         """Return a sorted list of (vehicle_class_name, source) tuples."""
-        found = discover_vehicle_classes(self.editor.mission_root, workshop_dir)
+        ws = workshop_dir or self.workshop_dir
+        found = discover_vehicle_classes(self.editor.mission_root, ws)
         return sorted(found.items())
+
+    def find_wheel_for_vehicle(self, vehicle_class_name: str) -> Optional[Tuple[str, int]]:
+        """Look up a wheel class name/count for *vehicle_class_name*.
+
+        Checks built-in templates first, then scans the configured workshop
+        directory for a matching wheel class name.
+        """
+        if vehicle_class_name in VEHICLE_TEMPLATES:
+            return VEHICLE_TEMPLATES[vehicle_class_name]
+        ws = self.workshop_dir
+        if ws is None or not ws.exists():
+            return None
+        all_names = _collect_class_names_from_workshop(ws)
+        wheel = _find_wheel_for_base(vehicle_class_name, all_names)
+        if wheel is None:
+            return None
+        return (wheel, 4)
 
     def detect_actions(self, vehicle_class_name: str) -> List[IntegrationAction]:
         """Return the list of changes needed for a vehicle mod."""
@@ -783,9 +823,16 @@ class ModIntegrationWorkflow:
         ok = self.editor.enable_vehicle_spawning(vehicle_class_name, active=True)
         add_action("events.xml", ok, f"Enable vehicle spawning for {vehicle_class_name}")
 
-        ok = self.editor.add_vehicle_attachments(vehicle_class_name)
-        if not ok:
-            ok = self.editor.define_spawnable_type(vehicle_class_name, [])
+        wheel_template = self.find_wheel_for_vehicle(vehicle_class_name)
+        if wheel_template:
+            wheel_name, count = wheel_template
+            ok = self.editor.define_spawnable_type(
+                vehicle_class_name, [(wheel_name, 1.0)] * count
+            )
+        else:
+            ok = self.editor.add_vehicle_attachments(vehicle_class_name)
+            if not ok:
+                ok = self.editor.define_spawnable_type(vehicle_class_name, [])
         add_action(
             "cfgspawnabletypes.xml",
             ok,

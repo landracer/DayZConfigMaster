@@ -54,7 +54,7 @@ class ModIntegrationTab:
         self._build_status()
 
         # Populate the vehicle picker once the UI exists.
-        self.parent.after(50, self._refresh_vehicles)
+        # Defer discovery so the GUI window appears before any I/O scan.
 
     def _build_header(self) -> None:
         header = ttk.Label(
@@ -131,25 +131,48 @@ class ModIntegrationTab:
             return None
         return Path(raw)
 
-    def _refresh_vehicles(self) -> None:
+    def _refresh_vehicles(self, done_callback: Optional[Callable[[], None]] = None) -> None:
         if not self._ensure_workflow():
+            if done_callback:
+                done_callback()
             return
 
-        workshop_path = self._get_workshop_path()
-        self._vehicle_sources = dict(self.workflow.discover_vehicles(workshop_path))
-        self._vehicle_combo["values"] = sorted(self._vehicle_sources.keys())
+        self._status.config(
+            text="Scanning workshop/mission for vehicles...",
+            foreground="blue",
+        )
+        self.parent.update_idletasks()
 
-        if self._vehicle_sources:
-            self._status.config(
-                text=f"Found {len(self._vehicle_sources)} vehicle class(es).",
-                foreground="gray",
-            )
-        else:
-            self._status.config(
-                text="No vehicle classes discovered. Type a class name manually or check your Workshop Directory.",
-                foreground="orange",
-            )
-        self._on_vehicle_selected()
+        def _scan() -> None:
+            try:
+                workshop_path = self._get_workshop_path()
+                self.workflow.workshop_dir = workshop_path
+                self._vehicle_sources = dict(self.workflow.discover_vehicles(workshop_path))
+                self._vehicle_combo["values"] = sorted(self._vehicle_sources.keys())
+
+                if self._vehicle_sources:
+                    status_text = f"Found {len(self._vehicle_sources)} vehicle class(es)."
+                    status_color = "gray"
+                else:
+                    status_text = (
+                        "No vehicle classes discovered. Type a class name manually "
+                        "or check your Workshop Directory."
+                    )
+                    status_color = "orange"
+            except Exception as exc:  # pragma: no cover - defensive UI handling
+                status_text = f"Vehicle scan failed: {exc}"
+                status_color = "red"
+
+            def _apply() -> None:
+                self._status.config(text=status_text, foreground=status_color)
+                self._on_vehicle_selected()
+                if done_callback:
+                    done_callback()
+
+            self.parent.after(0, _apply)
+
+        import threading
+        threading.Thread(target=_scan, daemon=True).start()
 
     def _on_vehicle_selected(self, event=None) -> None:
         name = self._vehicle_var.get().strip()
@@ -185,8 +208,11 @@ class ModIntegrationTab:
         if root is None:
             self._status.config(text="No mission root available.", foreground="red")
             return False
+        workshop_path = self._get_workshop_path()
         if self.workflow is None or self.workflow.editor.mission_root != root:
-            self.workflow = ModIntegrationWorkflow(root)
+            self.workflow = ModIntegrationWorkflow(root, workshop_dir=workshop_path)
+        else:
+            self.workflow.workshop_dir = workshop_path
         return True
 
     def _detect(self) -> None:
@@ -225,17 +251,37 @@ class ModIntegrationTab:
         ):
             return
 
-        result = self.workflow.integrate_vehicle_mod(vehicle)
-        for item in self._tree.get_children():
-            self._tree.delete(item)
+        self._status.config(text=f"Applying changes for {vehicle}...", foreground="blue")
+        self.parent.update_idletasks()
 
-        for action in result.actions:
-            status = "Applied" if action.applied else f"Failed: {action.error}"
-            self._tree.insert("", tk.END, values=(action.file_name, action.description, status))
+        def _run() -> None:
+            try:
+                result = self.workflow.integrate_vehicle_mod(vehicle)
+            except Exception as exc:  # pragma: no cover - defensive UI handling
+                result = None
+                error = str(exc)
 
-        if result.ok:
-            self._status.config(text=f"{vehicle} integrated successfully.", foreground="green")
-            messagebox.showinfo("Integration Complete", f"{vehicle} has been enabled.")
-        else:
-            self._status.config(text=f"Some changes for {vehicle} could not be applied.", foreground="red")
-            messagebox.showerror("Integration Incomplete", "One or more XML changes failed. Check the action list.")
+            def _show() -> None:
+                for item in self._tree.get_children():
+                    self._tree.delete(item)
+
+                if result is None:
+                    self._status.config(text=f"Error applying changes: {error}", foreground="red")
+                    messagebox.showerror("Integration Error", error)
+                    return
+
+                for action in result.actions:
+                    status = "Applied" if action.applied else f"Failed: {action.error}"
+                    self._tree.insert("", tk.END, values=(action.file_name, action.description, status))
+
+                if result.ok:
+                    self._status.config(text=f"{vehicle} integrated successfully.", foreground="green")
+                    messagebox.showinfo("Integration Complete", f"{vehicle} has been enabled.")
+                else:
+                    self._status.config(text=f"Some changes for {vehicle} could not be applied.", foreground="red")
+                    messagebox.showerror("Integration Incomplete", "One or more XML changes failed. Check the action list.")
+
+            self.parent.after(0, _show)
+
+        import threading
+        threading.Thread(target=_run, daemon=True).start()

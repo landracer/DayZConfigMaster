@@ -224,6 +224,34 @@ def test_workflow_rejects_vehicle_part():
         assert any(a.file_name == "validation" for a in result.actions)
 
 
+def test_workflow_uses_mod_wheel_template():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workshop = Path(tmpdir) / "workshop"
+        mod = workshop / "3369325490"
+        (mod / "Types").mkdir(parents=True)
+        (mod / "meta.cpp").write_text('name = "4K Vehicles";')
+        (mod / "Types" / "types.xml").write_text(
+            "<types>"
+            '<type name="Audi_RS6_ABT_Black"/>'
+            '<type name="Audi_RS6_ABT_Blue"/>'
+            '<type name="Audi_RS6_ABT_Wheel"/>'
+            "</types>"
+        )
+        (root / "events.xml").write_text("<events></events>")
+        (root / "cfgspawnabletypes.xml").write_text("<spawnabletypes></spawnabletypes>")
+        (root / "types.xml").write_text("<types></types>")
+
+        workflow = ModIntegrationWorkflow(root, workshop_dir=workshop)
+        wheel = workflow.find_wheel_for_vehicle("Audi_RS6_ABT")
+        assert wheel == ("Audi_RS6_ABT_Wheel", 4)
+
+        result = workflow.integrate_vehicle_mod("Audi_RS6_ABT")
+        assert result.ok
+        cfg_text = (root / "cfgspawnabletypes.xml").read_text()
+        assert cfg_text.count("Audi_RS6_ABT_Wheel") == 4
+
+
 if __name__ == "__main__":
     test_enable_vehicle_spawning_creates_event()
     test_define_spawnable_type_with_attachments()
@@ -238,4 +266,5 @@ if __name__ == "__main__":
     test_discover_vehicle_classes_from_workshop_subfolder()
     test_discover_vehicle_classes_fuzzy_wheel_mapping()
     test_workflow_rejects_vehicle_part()
+    test_workflow_uses_mod_wheel_template()
     print("All mod integration workflow tests passed!")
