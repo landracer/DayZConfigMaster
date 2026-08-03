@@ -53,8 +53,12 @@ class ModIntegrationTab:
         self._build_actions_tree()
         self._build_status()
 
-        # Populate the vehicle picker once the UI exists.
-        # Defer discovery so the GUI window appears before any I/O scan.
+        # Show an initial hint; discovery only runs when the user clicks
+        # Refresh List so startup is not blocked by workshop I/O.
+        self._status.config(
+            text="Click 'Refresh List' to discover vehicles from the mission and workshop.",
+            foreground="gray",
+        )
 
     def _build_header(self) -> None:
         header = ttk.Label(
@@ -147,11 +151,12 @@ class ModIntegrationTab:
             try:
                 workshop_path = self._get_workshop_path()
                 self.workflow.workshop_dir = workshop_path
-                self._vehicle_sources = dict(self.workflow.discover_vehicles(workshop_path))
-                self._vehicle_combo["values"] = sorted(self._vehicle_sources.keys())
+                discovered = self.workflow.discover_vehicles(workshop_path)
+                vehicle_sources = dict(discovered)
+                vehicle_values = sorted(vehicle_sources.keys())
 
-                if self._vehicle_sources:
-                    status_text = f"Found {len(self._vehicle_sources)} vehicle class(es)."
+                if vehicle_sources:
+                    status_text = f"Found {len(vehicle_sources)} vehicle class(es)."
                     status_color = "gray"
                 else:
                     status_text = (
@@ -160,10 +165,14 @@ class ModIntegrationTab:
                     )
                     status_color = "orange"
             except Exception as exc:  # pragma: no cover - defensive UI handling
+                vehicle_sources = {}
+                vehicle_values = []
                 status_text = f"Vehicle scan failed: {exc}"
                 status_color = "red"
 
             def _apply() -> None:
+                self._vehicle_sources = vehicle_sources
+                self._vehicle_combo["values"] = vehicle_values
                 self._status.config(text=status_text, foreground=status_color)
                 self._on_vehicle_selected()
                 if done_callback:
