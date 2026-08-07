@@ -7,8 +7,9 @@
 DayzConfigMasterApp: Main GUI application class.
 """
 
+import contextlib
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog, scrolledtext
+from tkinter import ttk, messagebox, filedialog, scrolledtext, simpledialog
 from pathlib import Path
 import glob
 import json
@@ -95,6 +96,7 @@ try:
     from ..mods.integration import ModIntegrationManager
     from ..mods.settings_discovery import detect_mod_settings_files
     from ..config.spawnabletypes_repair import repair_cfg_spawnable_types
+    from ..economy.aircraft_lifetime import ensure_aircraft_lifetime
     from ..utils.memory_guard import setup_memory_safety
     from ..banlist.vpp_manager import VppAdminTools
 except ImportError:
@@ -119,8 +121,24 @@ except ImportError:
         from dayzconfigmaster.mods.integration import ModIntegrationManager
         from dayzconfigmaster.mods.settings_discovery import detect_mod_settings_files
         from dayzconfigmaster.config.spawnabletypes_repair import repair_cfg_spawnable_types
+        from dayzconfigmaster.economy.aircraft_lifetime import ensure_aircraft_lifetime
+        from dayzconfigmaster.config.deployment_manifest import (
+            DeploymentManifestManager,
+            compute_quick_skip_status,
+        )
+        from dayzconfigmaster.backups.instance_storage import InstanceStorageBackupManager
+        from dayzconfigmaster.backups.players_db import find_players_db, compare_players_dbs, PlayersDbSplicer
+        from dayzconfigmaster.backups.map_storage_state import InstanceMapStorageTracker
+        from dayzconfigmaster.backups.cross_instance_storage import find_map_backups_across_instances
+        from dayzconfigmaster.scheduler import EventScheduler, EventType
         from dayzconfigmaster.utils.memory_guard import setup_memory_safety
         from dayzconfigmaster.banlist.vpp_manager import VppAdminTools
+        from dayzconfigmaster.server.instance_preflight import (
+            InstancePreflightChecker,
+            InstancePreflightRepair,
+            Severity,
+        )
+        from dayzconfigmaster.config.mod_presets import ModPresetManager
     except ImportError:
         from server.process_controller import ProcessController
         from server.deployment import (
@@ -142,8 +160,60 @@ except ImportError:
         from mods.integration import ModIntegrationManager
         from mods.settings_discovery import detect_mod_settings_files
         from config.spawnabletypes_repair import repair_cfg_spawnable_types
+        from economy.aircraft_lifetime import ensure_aircraft_lifetime
+        from config.deployment_manifest import (
+            DeploymentManifestManager,
+            compute_quick_skip_status,
+        )
+        from backups.instance_storage import InstanceStorageBackupManager
+        from backups.players_db import find_players_db, compare_players_dbs, PlayersDbSplicer
+        from backups.map_storage_state import InstanceMapStorageTracker
+        from backups.cross_instance_storage import find_map_backups_across_instances
+        from scheduler import EventScheduler, EventType
         from utils.memory_guard import setup_memory_safety
         from banlist.vpp_manager import VppAdminTools
+        from server.instance_preflight import (
+            InstancePreflightChecker,
+            InstancePreflightRepair,
+            Severity,
+        )
+        from config.mod_presets import ModPresetManager
+
+
+# Ensure backup/manifest classes are always available regardless of which
+# import branch above succeeded (script vs package execution).
+try:
+    from dayzconfigmaster.config.deployment_manifest import (
+        DeploymentManifestManager,
+        compute_quick_skip_status,
+    )
+    from dayzconfigmaster.backups.instance_storage import InstanceStorageBackupManager
+    from dayzconfigmaster.backups.players_db import find_players_db, compare_players_dbs, PlayersDbSplicer
+    from dayzconfigmaster.backups.map_storage_state import InstanceMapStorageTracker
+    from dayzconfigmaster.backups.cross_instance_storage import find_map_backups_across_instances
+    from dayzconfigmaster.scheduler import EventScheduler, EventType
+    from dayzconfigmaster.server.instance_preflight import (
+        InstancePreflightChecker,
+        InstancePreflightRepair,
+        Severity,
+    )
+    from dayzconfigmaster.config.mod_presets import ModPresetManager
+except ImportError:
+    from config.deployment_manifest import (
+        DeploymentManifestManager,
+        compute_quick_skip_status,
+    )
+    from backups.instance_storage import InstanceStorageBackupManager
+    from backups.players_db import find_players_db, compare_players_dbs, PlayersDbSplicer
+    from backups.map_storage_state import InstanceMapStorageTracker
+    from backups.cross_instance_storage import find_map_backups_across_instances
+    from scheduler import EventScheduler, EventType
+    from server.instance_preflight import (
+        InstancePreflightChecker,
+        InstancePreflightRepair,
+        Severity,
+    )
+    from config.mod_presets import ModPresetManager
 
 
 # Import tab classes
@@ -163,18 +233,18 @@ except ImportError:
 
 # Import interactive mod settings widgets and new XML editor tabs.
 try:
-    from ..gui.mod_settings_editor.widgets import create_widget_for_setting
+    from ..gui.mod_settings_editor.editor import ModSettingsEditor
     from ..gui.mod_settings_editor.parser import ConfigParser as ModConfigParser, SettingField
     from ..gui.xml_config_editor import XmlConfigEditorTab
     from ..gui.mod_integration_tab import ModIntegrationTab
 except ImportError:
     try:
-        from dayzconfigmaster.gui.mod_settings_editor.widgets import create_widget_for_setting
+        from dayzconfigmaster.gui.mod_settings_editor.editor import ModSettingsEditor
         from dayzconfigmaster.gui.mod_settings_editor.parser import ConfigParser as ModConfigParser, SettingField
         from dayzconfigmaster.gui.xml_config_editor import XmlConfigEditorTab
         from dayzconfigmaster.gui.mod_integration_tab import ModIntegrationTab
     except ImportError:
-        from gui.mod_settings_editor.widgets import create_widget_for_setting
+        from gui.mod_settings_editor.editor import ModSettingsEditor
         from gui.mod_settings_editor.parser import ConfigParser as ModConfigParser, SettingField
         from gui.xml_config_editor import XmlConfigEditorTab
         from gui.mod_integration_tab import ModIntegrationTab
@@ -454,7 +524,10 @@ class DayzConfigMasterApp:
         # Cached mapping of workshop map display names to real world names.
         self._workshop_world_name_cache: Optional[Dict[str, str]] = None
         self._workshop_world_name_cache_dir: Optional[str] = None
-        
+
+        # Busy cursor / status tracking so long operations give user feedback.
+        self._busy_count = 0
+
         # Mod tree selection state
         self._mod_tree: Optional[ttk.Treeview] = None
         self._mod_tree_items: Dict[str, str] = {}  # mod_name -> treeview item id
@@ -495,7 +568,11 @@ class DayzConfigMasterApp:
         self._control_notebook: Optional[ttk.Notebook] = None
         self._ban_frame: Optional[ttk.Frame] = None
         self._logs_frame: Optional[ttk.Frame] = None
-        
+
+        # CRON scheduler for restarts, backups and messages.
+        self._event_scheduler: Optional["EventScheduler"] = None
+        self._scheduler_enabled_var = tk.BooleanVar(value=False)
+
         # RCon / Ban state (moved from standalone Ban List tab)
         self.rcon_client = None
         self.rcon_host_var = tk.StringVar(value="localhost")
@@ -529,6 +606,96 @@ class DayzConfigMasterApp:
 
         # Scan for existing DayZ server configuration and ask user to load it
         self._scan_and_load_existing_config()
+
+        # Initialize the scheduler (not started until enabled).
+        self._init_event_scheduler()
+
+    def _init_event_scheduler(self) -> None:
+        """Create and register scheduler callbacks."""
+        try:
+            projects_root = self._get_projects_root()
+        except Exception:
+            return
+        if not projects_root:
+            return
+
+        self._event_scheduler = EventScheduler(str(projects_root))
+        self._event_scheduler.set_callback(
+            EventType.BACKUP, self._on_scheduler_backup
+        )
+        self._event_scheduler.set_callback(
+            EventType.RESTART, self._on_scheduler_restart
+        )
+        self._event_scheduler.set_callback(
+            EventType.MESSAGE, self._on_scheduler_message
+        )
+        self._event_scheduler.load_events()
+
+    def _on_scheduler_backup(self, event: Any) -> None:
+        """Callback for scheduled BACKUP events."""
+        self.log_text.insert(
+            tk.END,
+            f"[{self._get_timestamp()}] Scheduled backup event triggered: {event.name}\n",
+        )
+        for instance in getattr(self, "_instance_vars", []):
+            ok, msg, _ = self._ensure_instance_storage_backup(instance)
+            self.log_text.insert(
+                tk.END,
+                f"[{self._get_timestamp()}] {msg}\n",
+            )
+
+    def _on_scheduler_restart(self, event: Any) -> None:
+        """Callback for scheduled RESTART events."""
+        self.log_text.insert(
+            tk.END,
+            f"[{self._get_timestamp()}] Scheduled restart event triggered: {event.name}\n",
+        )
+        # Restart only running instances to avoid unwanted starts.
+        running = list(self._running_instance_ids)
+        if not running:
+            self.log_text.insert(
+                tk.END,
+                f"[{self._get_timestamp()}] No running instances to restart.\n",
+            )
+            return
+        for instance in self._instance_vars:
+            if instance["id"].get() in running:
+                self._stop_single_instance(instance)
+                # Small delay to let the server release ports/files.
+                self.root.after(5000, lambda inst=instance: self._start_single_instance(inst))
+
+    def _on_scheduler_message(self, event: Any) -> None:
+        """Callback for scheduled MESSAGE events."""
+        text = " ".join(event.params) if event.params else "Server message"
+        self.log_text.insert(
+            tk.END,
+            f"[{self._get_timestamp()}] Scheduled message: {text}\n",
+        )
+        try:
+            if self.rcon_client is not None:
+                self.rcon_client.send_message(text)
+        except Exception as exc:
+            self.log_text.insert(
+                tk.END,
+                f"[{self._get_timestamp()}] Failed to send scheduled message: {exc}\n",
+            )
+
+    def _toggle_event_scheduler(self) -> None:
+        """Start or stop the CRON scheduler thread."""
+        if self._event_scheduler is None:
+            return
+        if self._scheduler_enabled_var.get():
+            self._event_scheduler.start()
+            self.log_text.insert(
+                tk.END,
+                f"[{self._get_timestamp()}] Event scheduler started.\n",
+            )
+        else:
+            self._event_scheduler.stop()
+            self.log_text.insert(
+                tk.END,
+                f"[{self._get_timestamp()}] Event scheduler stopped.\n",
+            )
 
     def _is_valid_tk_root(self) -> bool:
         """Return True if self.root is a real, alive Tk widget."""
@@ -570,6 +737,38 @@ class DayzConfigMasterApp:
         else:
             func()
         return None
+
+    def _set_busy(self, message: str = "Processing...") -> None:
+        """Show a watch cursor and status message."""
+        self._busy_count += 1
+        if hasattr(self, "status_var"):
+            self.status_var.set(message)
+        try:
+            self.root.config(cursor="watch")
+            self.root.update_idletasks()
+        except (AttributeError, tk.TclError):
+            pass
+
+    def _clear_busy(self) -> None:
+        """Restore the normal cursor once all busy calls are cleared."""
+        self._busy_count = max(0, self._busy_count - 1)
+        if self._busy_count == 0:
+            if hasattr(self, "status_var"):
+                self.status_var.set("Ready")
+            try:
+                self.root.config(cursor="")
+                self.root.update_idletasks()
+            except (AttributeError, tk.TclError):
+                pass
+
+    @contextlib.contextmanager
+    def _busy_context(self, message: str = "Processing..."):
+        """Context manager wrapper around _set_busy/_clear_busy."""
+        self._set_busy(message)
+        try:
+            yield
+        finally:
+            self._clear_busy()
 
     def _scan_and_load_existing_config(self):
         """
@@ -1221,11 +1420,12 @@ Trader2 {
         server_frame.columnconfigure(0, weight=1)
         server_frame.rowconfigure(1, weight=1)
 
-        # Header
+        # Slim header shared by all sub-tabs (Core, Mods, Files, Mod Settings,
+        # Mission XML Editor, Spawn Loadout, etc.).
         header = ttk.Frame(server_frame)
-        header.grid(row=0, column=0, sticky=tk.W+tk.E, padx=10, pady=(10, 5))
+        header.grid(row=0, column=0, sticky=tk.W+tk.E, padx=10, pady=(5, 2))
 
-        ttk.Label(header, text="Server Configuration", font=("Arial", 14, "bold")).pack(side=tk.LEFT)
+        ttk.Label(header, text="Server Configuration", font=("Arial", 11, "bold")).pack(side=tk.LEFT)
         wiki_link_frame = self.create_wiki_link(header, "server-config")
         wiki_link_frame.pack(side=tk.RIGHT)
 
@@ -1256,13 +1456,6 @@ Trader2 {
         self._server_config_notebook.add(missions_frame, text="Missions")
         self._create_missions_tab(missions_frame)
 
-        # Mod Settings tab
-        mod_settings_frame = ttk.Frame(self._server_config_notebook)
-        mod_settings_frame.columnconfigure(0, weight=1)
-        mod_settings_frame.rowconfigure(0, weight=1)
-        self._server_config_notebook.add(mod_settings_frame, text="Mod Settings")
-        self._create_mod_settings_content(mod_settings_frame)
-
         # Multi-Instance tab (scrollable so low-resolution screens can reach
         # all configured instance rows).
         multi_outer = ttk.Frame(self._server_config_notebook)
@@ -1289,16 +1482,27 @@ Trader2 {
         self._server_config_notebook.add(xml_editor_frame, text="Mission XML Editor")
         self._xml_config_editor_tab = XmlConfigEditorTab(xml_editor_frame, self._get_current_mission_root)
 
-        # Vehicle Quick Setup tab
+        # Spawn Loadout tab
         integration_frame = ttk.Frame(self._server_config_notebook)
         integration_frame.columnconfigure(0, weight=1)
         integration_frame.rowconfigure(0, weight=1)
-        self._server_config_notebook.add(integration_frame, text="Vehicle Quick Setup")
+        self._server_config_notebook.add(integration_frame, text="Spawn Loadout")
         self._mod_integration_tab = ModIntegrationTab(
             integration_frame,
             self._get_current_mission_root,
             self._get_workshop_directory,
+            get_instances=self._get_instance_dicts,
+            get_instance_display_name=self._instance_display_name,
+            get_instance_root=self._resolve_instance_root,
+            get_instance_mission_root=self._get_instance_mission_root,
         )
+
+        # Mod Settings tab
+        mod_settings_frame = ttk.Frame(self._server_config_notebook)
+        mod_settings_frame.columnconfigure(0, weight=1)
+        mod_settings_frame.rowconfigure(0, weight=1)
+        self._server_config_notebook.add(mod_settings_frame, text="Mod Settings")
+        self._create_mod_settings_content(mod_settings_frame)
 
         # Auto-refresh Mod Settings when its tab is selected so it always
         # reflects the currently chosen map/instance.
@@ -1664,6 +1868,43 @@ Trader2 {
         ttk.Button(mod_button_frame, text="Update Mods", command=self._update_workshop_mods).pack(side=tk.LEFT, padx=2)
         ttk.Button(mod_button_frame, text="Cleanup Unsubscribed", command=self._cleanup_unsubscribed_workshop).pack(side=tk.LEFT, padx=2)
 
+        # Preset controls for the main Mods tab
+        preset_frame = ttk.LabelFrame(
+            mod_selection_frame, text="Mod Presets", padding=5
+        )
+        preset_frame.grid(
+            row=2, column=0, sticky=tk.W + tk.E, padx=5, pady=(5, 0)
+        )
+
+        ttk.Label(preset_frame, text="Preset:").pack(
+            side=tk.LEFT, padx=(0, 5)
+        )
+        self._mods_tab_preset_var = tk.StringVar(value="")
+        self._mods_tab_preset_combo = ttk.Combobox(
+            preset_frame,
+            values=self._get_mod_preset_manager().list_presets(),
+            textvariable=self._mods_tab_preset_var,
+            state="readonly",
+            width=30,
+        )
+        self._mods_tab_preset_combo.pack(side=tk.LEFT, padx=(0, 5))
+
+        ttk.Button(
+            preset_frame, text="Load", command=self._apply_mod_preset_to_tree
+        ).pack(side=tk.LEFT, padx=2)
+        ttk.Button(
+            preset_frame, text="Save As", command=self._save_mod_preset_from_tree
+        ).pack(side=tk.LEFT, padx=2)
+        ttk.Button(
+            preset_frame, text="Delete", command=self._delete_mod_preset_from_tree
+        ).pack(side=tk.LEFT, padx=2)
+        ttk.Button(
+            preset_frame, text="Export", command=self._export_mod_presets
+        ).pack(side=tk.LEFT, padx=2)
+        ttk.Button(
+            preset_frame, text="Import", command=self._import_mod_presets
+        ).pack(side=tk.LEFT, padx=2)
+
         # Mod paths
         mod_paths_frame = ttk.Frame(parent)
         mod_paths_frame.grid(row=2, column=0, sticky=tk.W+tk.E, padx=5, pady=5)
@@ -1896,17 +2137,39 @@ Trader2 {
     def _create_mod_settings_content(self, parent: ttk.Frame) -> None:
         """Build the Mod Settings tab: browse and edit mod JSON/XML configs.
 
-        Scans the active mission folder for known mod settings directories
-        (e.g. expansion/settings, TraderPlus) and presents them in a tree.
-        Selecting a file opens it in a text editor with JSON validation and
-        a Save button that backs up the original before writing changes.
+        Uses a scalable two-pane editor (searchable tree + detail editor) so
+        files with hundreds of settings are usable.  Edits can be saved as
+        per-instance overrides so each server instance can have its own mod
+        configuration.
         """
         parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(0, weight=1)
+        parent.rowconfigure(1, weight=1)
+
+        # Instance selector
+        instance_frame = ttk.Frame(parent)
+        instance_frame.grid(row=0, column=0, sticky=tk.EW, padx=5, pady=(5, 0))
+        ttk.Label(instance_frame, text="Instance:").pack(side=tk.LEFT)
+        self._mod_settings_instance_var = tk.StringVar()
+        self._mod_settings_instance_combo = ttk.Combobox(
+            instance_frame,
+            textvariable=self._mod_settings_instance_var,
+            state="readonly",
+            width=40,
+        )
+        self._mod_settings_instance_combo.pack(side=tk.LEFT, padx=5)
+        self._mod_settings_instance_combo.bind(
+            "<<ComboboxSelected>>", lambda _e: self._refresh_mod_settings()
+        )
+        self._mod_settings_instance_label = ttk.Label(
+            instance_frame,
+            text="Select an instance to scope edits and overrides.",
+            foreground="gray",
+        )
+        self._mod_settings_instance_label.pack(side=tk.LEFT, padx=5)
 
         paned = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
-        paned.grid(row=0, column=0, sticky=tk.NSEW, padx=5, pady=5)
-        parent.rowconfigure(0, weight=1)
+        paned.grid(row=1, column=0, sticky=tk.NSEW, padx=5, pady=5)
+        parent.rowconfigure(1, weight=1)
         parent.columnconfigure(0, weight=1)
 
         # Left side: settings file tree
@@ -1953,58 +2216,78 @@ Trader2 {
 
         paned.add(left_frame, weight=1)
 
-        # Right side: editor
+        # Right side: new scalable editor
         right_frame = ttk.LabelFrame(paned, text="Editor", padding=5)
         right_frame.columnconfigure(0, weight=1)
-        right_frame.rowconfigure(1, weight=1)
+        right_frame.rowconfigure(0, weight=1)
 
-        self._mod_settings_file_label = ttk.Label(right_frame, text="No file selected", foreground="gray")
-        self._mod_settings_file_label.grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
-
-        editor_frame = ttk.Frame(right_frame)
-        editor_frame.grid(row=1, column=0, sticky=tk.NSEW)
-        editor_frame.columnconfigure(0, weight=1)
-        editor_frame.rowconfigure(0, weight=1)
-
-        # Text editor (always available).
-        self._mod_settings_editor = scrolledtext.ScrolledText(
-            editor_frame,
-            wrap=tk.NONE,
-            font=("Courier", 10),
-            undo=True,
+        self._mod_settings_editor = ModSettingsEditor(
+            right_frame,
+            get_instance_root=self._get_selected_mod_settings_instance_root,
         )
-        self._mod_settings_editor.pack(fill=tk.BOTH, expand=True)
-        self._mod_settings_editor.config(state=tk.DISABLED)
-
-        # Interactive editor container (created on demand).
-        self._interactive_editor_frame: Optional[ttk.Frame] = None
-        self._interactive_editor_visible = False
-        self._interactive_setting_widgets: Dict[str, tk.Widget] = {}
-        self._interactive_setting_values: Dict[str, Any] = {}
-        self._interactive_canvas: Optional[tk.Canvas] = None
-        self._interactive_scrollable: Optional[ttk.Frame] = None
-
-        self._mod_settings_status = ttk.Label(right_frame, text="", foreground="gray")
-        self._mod_settings_status.grid(row=2, column=0, sticky=tk.W, pady=(5, 0))
-
-        editor_btn_frame = ttk.Frame(right_frame)
-        editor_btn_frame.grid(row=3, column=0, sticky=tk.E, pady=(5, 0))
-        self._interactive_toggle_btn = ttk.Button(
-            editor_btn_frame,
-            text="Text Editor",
-            command=self._toggle_interactive_editor,
-            state=tk.DISABLED,
-        )
-        self._interactive_toggle_btn.pack(side=tk.LEFT, padx=2)
-        ttk.Button(editor_btn_frame, text="Validate", command=self._validate_mod_settings).pack(side=tk.LEFT, padx=2)
-        ttk.Button(editor_btn_frame, text="Save", command=self._save_mod_settings).pack(side=tk.LEFT, padx=2)
 
         paned.add(right_frame, weight=3)
 
         self._mod_settings_path: Optional[Path] = None
-        self._INTERACTIVE_WIDGET_LIMIT = 20
-        self._interactive_editor_default = True
         self._refresh_mod_settings()
+
+    def _get_selected_mod_settings_instance_root(self) -> Optional[Path]:
+        """Return the instance root for the currently selected Mod Settings instance."""
+        selected = self._mod_settings_instance_var.get()
+        for instance in getattr(self, "_instance_vars", []):
+            name = self._instance_display_name(instance)
+            if name == selected:
+                root = instance.get("root_folder", {}).get() or ""
+                sanitized = self._sanitize_instance_root(root, int(instance["id"].get() or 1))
+                if sanitized:
+                    return Path(sanitized)
+        return None
+
+    def _instance_display_name(self, instance: Dict[str, Any]) -> str:
+        """Return a human-readable label for a multi-instance row."""
+        inst_id = int(instance.get("id", {}).get() or 1)
+        map_name = instance.get("map", {}).get() or "unknown"
+        return f"Instance {inst_id} ({map_name})"
+
+    def _get_instance_dicts(self) -> List[Dict[str, Any]]:
+        """Return the configured multi-instance dicts."""
+        return list(getattr(self, "_instance_vars", []))
+
+    def _resolve_instance_root(self, instance: Dict[str, Any]) -> Optional[Path]:
+        """Return the on-disk root folder for a multi-instance dict."""
+        if not instance:
+            return None
+        root_folder = instance.get("root_folder", {}).get() or ""
+        instance_id = int(instance.get("id", {}).get() or 1)
+        sanitized = self._sanitize_instance_root(root_folder, instance_id)
+        if sanitized:
+            return Path(sanitized)
+        dayz_path = self.dayz_path_var.get().strip() if hasattr(self, "dayz_path_var") else ""
+        if dayz_path:
+            return Path(dayz_path)
+        return None
+
+    def _get_instance_mission_root(self, instance: Dict[str, Any]) -> Optional[Path]:
+        """Return the mission folder path that an instance will use.
+
+        The server loads mpmissions/dayzOffline.<world>.  We mirror that path
+        inside the instance root so the tab can edit the exact mission the
+        instance will run.
+        """
+        instance_root = self._resolve_instance_root(instance)
+        if instance_root is None:
+            return None
+        map_display_name = instance.get("map", {}).get() or ""
+        if not map_display_name:
+            return None
+        workshop_dir = self._get_workshop_directory() or ""
+        world_name = self._resolve_world_name(map_display_name, workshop_dir) or map_display_name
+        if world_name.lower().startswith("dayzoffline.") or world_name.lower().startswith("dayz."):
+            target_name = world_name
+        else:
+            target_name = f"dayzOffline.{world_name}"
+        mission_path = instance_root / "mpmissions" / target_name
+        return mission_path if mission_path.exists() else None
 
     def _detect_mod_settings_files(self) -> List[Tuple[str, str, Path]]:
         """Scan workshop mod folders and the active mission folder for settings files.
@@ -2141,21 +2424,37 @@ Trader2 {
         return None
 
     def _on_server_config_tab_changed(self, event=None) -> None:
-        """Refresh the Mod Settings tree whenever its tab is shown."""
+        """Refresh tabs that depend on the currently selected map/instance."""
         if not hasattr(self, "_server_config_notebook"):
             return
         try:
-            selected = self._server_config_notebook.index("current")
+            selected_text = self._server_config_notebook.tab("current", "text")
         except tk.TclError:
             return
-        # Mod Settings is the third tab (index 2).
-        if selected == 2:
+        if selected_text == "Mod Settings":
             self._refresh_mod_settings()
+        elif selected_text == "Spawn Loadout":
+            if hasattr(self, "_mod_integration_tab"):
+                self._mod_integration_tab.refresh()
 
     def _refresh_mod_settings(self) -> None:
-        """Rescan and populate the mod settings file tree."""
+        """Rescan and populate the mod settings file tree and instance selector."""
+        with self._busy_context("Scanning mod settings..."):
+            self._refresh_mod_settings_impl()
+
+    def _refresh_mod_settings_impl(self) -> None:
+        """Internal implementation: refresh mod settings tree."""
         if not hasattr(self, "_mod_settings_tree"):
             return
+
+        # Update instance selector
+        instance_names: List[str] = []
+        for instance in getattr(self, "_instance_vars", []):
+            instance_names.append(self._instance_display_name(instance))
+        current = self._mod_settings_instance_var.get()
+        self._mod_settings_instance_combo.config(values=instance_names)
+        if current not in instance_names and instance_names:
+            self._mod_settings_instance_var.set(instance_names[0])
 
         for item in self._mod_settings_tree.get_children():
             self._mod_settings_tree.delete(item)
@@ -2166,20 +2465,17 @@ Trader2 {
 
         count = len(self._mod_settings_tree.get_children())
         if count:
-            self._mod_settings_status.config(
-                text=f"Found {count} settings file(s) across workshop mods and mission",
-                foreground="green",
-            )
             # Auto-select the first file so the editor is immediately usable.
             first = self._mod_settings_tree.get_children()[0]
             self._mod_settings_tree.selection_set(first)
             self._mod_settings_tree.see(first)
             self._on_mod_settings_select()
         else:
-            self._mod_settings_status.config(
-                text="No settings files found. Set DayZ Server Path / Map Name and workshop directory.",
-                foreground="red",
-            )
+            if hasattr(self._mod_settings_editor, "_status"):
+                self._mod_settings_editor._status.config(
+                    text="No settings files found. Set DayZ Server Path / Map Name and workshop directory.",
+                    foreground="red",
+                )
 
     def _browse_mod_settings_file(self) -> None:
         """Let the user add an arbitrary mod settings file to the tree."""
@@ -2196,7 +2492,7 @@ Trader2 {
         self._mod_settings_tree.insert("", tk.END, values=(mod_name, rel_path, str(p)))
 
     def _on_mod_settings_select(self, event=None) -> None:
-        """Load the selected settings file into the editor."""
+        """Load the selected settings file into the new scalable editor."""
         if not hasattr(self, "_mod_settings_tree"):
             return
 
@@ -2209,422 +2505,17 @@ Trader2 {
             return
 
         mod_name = values[0] or "Unknown"
-        file_name = values[1]
         path = Path(values[2])
         self._mod_settings_path = path
-        self._mod_settings_file_label.config(text=f"[{mod_name}] {file_name}")
-        self._interactive_editor_visible = False
-        self._cleanup_interactive_editor()
-
-        try:
-            text = path.read_text(encoding="utf-8")
-            self._mod_settings_editor.config(state=tk.NORMAL)
-            self._mod_settings_editor.delete("1.0", tk.END)
-            self._mod_settings_editor.insert("1.0", text)
-            self._mod_settings_editor.config(state=tk.NORMAL)
-
-            # Try to parse for interactive editing.
-            settings: List[SettingField] = []
-            try:
-                parser = ModConfigParser()
-                settings = parser.parse_file(str(path))
-            except Exception as exc:
-                self._mod_settings_status.config(
-                    text=f"Loaded {path.name} (text only — parse error: {exc})", foreground="orange"
-                )
-                self._interactive_toggle_btn.config(state=tk.DISABLED)
-                return
-
-            self._last_parsed_settings = settings
-            can_interactive = bool(
-                settings
-                and len(settings) <= self._INTERACTIVE_WIDGET_LIMIT
-                and not any(s.name.startswith("_error") for s in settings)
-            )
-
-            if can_interactive:
-                self._mod_settings_status.config(
-                    text=f"Loaded [{mod_name}] {path.name} — interactive editor active ({len(settings)} setting(s))",
-                    foreground="green",
-                )
-                self._interactive_toggle_btn.config(state=tk.NORMAL)
-                # Show the interactive editor by default; text editor is the fallback.
-                self._show_interactive_editor(path, settings)
-                self._interactive_toggle_btn.config(text="Text Editor")
-            elif settings and len(settings) > self._INTERACTIVE_WIDGET_LIMIT:
-                self._mod_settings_status.config(
-                    text=(
-                        f"Loaded [{mod_name}] {path.name} — {len(settings)} settings exceeds "
-                        f"interactive limit ({self._INTERACTIVE_WIDGET_LIMIT}); text view only."
-                    ),
-                    foreground="orange",
-                )
-                self._interactive_toggle_btn.config(state=tk.DISABLED)
-            else:
-                self._mod_settings_status.config(
-                    text=f"Loaded [{mod_name}] {path.name} (text only)", foreground="gray"
-                )
-                self._interactive_toggle_btn.config(state=tk.DISABLED)
-        except tk.TclError as exc:
-            err_str = str(exc).lower()
-            if "badalloc" in err_str or "insufficient" in err_str:
-                self._mod_settings_status.config(
-                    text="X server out of resources; opened in text view.", foreground="red"
-                )
-                self._show_text_editor(path)
-            else:
-                raise
-        except Exception as exc:
-            messagebox.showerror("Read Error", f"Could not read {path}:\n{exc}")
+        self._mod_settings_editor.load_file(path, mod_name=mod_name)
 
     def _validate_mod_settings(self) -> bool:
-        """Validate the editor content as JSON or XML; treat other files as text."""
-        if not hasattr(self, "_mod_settings_editor"):
-            return False
-
-        text = self._mod_settings_editor.get("1.0", tk.END).strip()
-        if not text:
-            self._mod_settings_status.config(text="Editor is empty.", foreground="gray")
-            return True
-
-        path = self._mod_settings_path
-        suffix = path.suffix.lower() if path is not None else ""
-
-        if suffix == ".xml":
-            try:
-                import xml.etree.ElementTree as ET
-                ET.fromstring(text)
-                self._mod_settings_status.config(text="XML is valid.", foreground="green")
-                return True
-            except Exception as exc:
-                self._mod_settings_status.config(text=f"XML error: {exc}", foreground="red")
-                return False
-
-        if suffix == ".json":
-            try:
-                json.loads(text)
-                self._mod_settings_status.config(text="JSON is valid.", foreground="green")
-                return True
-            except json.JSONDecodeError as exc:
-                self._mod_settings_status.config(text=f"JSON error: {exc}", foreground="red")
-                return False
-
-        self._mod_settings_status.config(text="Text file (no validation).", foreground="gray")
-        return True
+        """Validate the editor content through the new editor widget."""
+        return self._mod_settings_editor._validate()
 
     def _save_mod_settings(self) -> None:
-        """Save the editor content back to the selected file with a backup."""
-        if self._mod_settings_path is None:
-            messagebox.showwarning("No File", "Please select a settings file first.")
-            return
-
-        text = self._mod_settings_editor.get("1.0", tk.END)
-        path = self._mod_settings_path
-        suffix = path.suffix.lower()
-
-        if suffix == ".xml":
-            try:
-                import xml.etree.ElementTree as ET
-                ET.fromstring(text)
-                formatted = text
-            except Exception as exc:
-                messagebox.showerror("Invalid XML", f"Cannot save: {exc}")
-                return
-        elif suffix == ".json":
-            try:
-                data = json.loads(text)
-                formatted = json.dumps(data, indent=4, ensure_ascii=False)
-            except json.JSONDecodeError as exc:
-                messagebox.showerror("Invalid JSON", f"Cannot save: {exc}")
-                return
-        else:
-            # Plain text / CPP / HPP files: save as-is.
-            formatted = text
-
-        # Warn when editing files managed by Steam Workshop.
-        workshop_dir = self._get_workshop_directory()
-        if workshop_dir and path.resolve().is_relative_to(Path(workshop_dir).resolve()):
-            if not messagebox.askyesno(
-                "Steam Workshop File",
-                f"This file is inside the Steam Workshop directory:\n{path}\n\n"
-                "Steam may overwrite it on the next update. "
-                "Consider copying the config into your mission folder instead.\n\n"
-                "Save anyway?",
-            ):
-                return
-
-        # Backup the existing file before overwriting.
-        backup_dir = path.parent / "backups"
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_path = backup_dir / f"{path.stem}_{timestamp}{path.suffix}"
-        try:
-            if path.exists():
-                shutil.copy2(path, backup_path)
-            path.write_text(formatted, encoding="utf-8")
-            self._mod_settings_status.config(
-                text=f"Saved. Backup: {backup_path.name}", foreground="green"
-            )
-        except Exception as exc:
-            messagebox.showerror("Save Error", f"Could not save {path}:\n{exc}")
-
-    def _toggle_interactive_editor(self) -> None:
-        """Switch between text and interactive views for mod settings."""
-        if self._interactive_editor_visible:
-            self._show_text_editor(self._mod_settings_path)
-            self._interactive_toggle_btn.config(text="Interactive View")
-        else:
-            settings = getattr(self, "_last_parsed_settings", None)
-            if not settings:
-                return
-            if len(settings) > self._INTERACTIVE_WIDGET_LIMIT:
-                self._mod_settings_status.config(
-                    text=f"Too many settings ({len(settings)}) for interactive view.",
-                    foreground="orange",
-                )
-                return
-            self._show_interactive_editor(self._mod_settings_path, settings)
-            self._interactive_toggle_btn.config(text="Text View")
-
-    def _show_text_editor(self, path: Optional[Path]) -> None:
-        """Show the raw text editor and hide the interactive editor."""
-        self._interactive_editor_visible = False
-        self._cleanup_interactive_editor()
-        self._mod_settings_editor.pack(fill=tk.BOTH, expand=True)
-        if hasattr(self, "_interactive_toggle_btn"):
-            self._interactive_toggle_btn.config(text="Interactive View")
-        if path:
-            self._mod_settings_status.config(text=f"Showing text view for {path.name}")
-
-    def _cleanup_interactive_editor(self) -> None:
-        """Destroy the interactive editor widgets and release references."""
-        if self._interactive_canvas is not None:
-            try:
-                if self._interactive_canvas.winfo_exists():
-                    self._interactive_canvas.unbind("<Button-4>")
-                    self._interactive_canvas.unbind("<Button-5>")
-                    self._interactive_canvas.unbind("<MouseWheel>")
-                    self._interactive_canvas.unbind("<Enter>")
-                    self._interactive_canvas.destroy()
-            except tk.TclError:
-                pass
-            self._interactive_canvas = None
-        if self._interactive_editor_frame is not None:
-            try:
-                if self._interactive_editor_frame.winfo_exists():
-                    self._interactive_editor_frame.destroy()
-            except tk.TclError:
-                pass
-            self._interactive_editor_frame = None
-        self._interactive_scrollable = None
-        self._interactive_setting_widgets.clear()
-
-    def _show_interactive_editor(self, path: Optional[Path], settings: List[SettingField]) -> None:
-        """Build and display the interactive widget editor."""
-        self._interactive_editor_visible = True
-        self._mod_settings_editor.pack_forget()
-
-        try:
-            self._interactive_editor_frame = ttk.Frame(self._mod_settings_editor.master)
-            self._interactive_editor_frame.pack(fill=tk.BOTH, expand=True)
-            self._interactive_editor_frame.columnconfigure(0, weight=1)
-            self._interactive_editor_frame.rowconfigure(0, weight=1)
-
-            canvas = tk.Canvas(self._interactive_editor_frame, borderwidth=0, highlightthickness=0)
-            vscroll = ttk.Scrollbar(self._interactive_editor_frame, orient=tk.VERTICAL, command=canvas.yview)
-            scrollable = ttk.Frame(canvas)
-            canvas.configure(yscrollcommand=vscroll.set)
-
-            canvas.grid(row=0, column=0, sticky=tk.NSEW)
-            vscroll.grid(row=0, column=1, sticky=tk.NS)
-            self._interactive_editor_frame.rowconfigure(0, weight=1)
-            self._interactive_editor_frame.columnconfigure(0, weight=1)
-
-            canvas_window = canvas.create_window((0, 0), window=scrollable, anchor="nw")
-
-            def _update_scrollregion(_evt=None):
-                try:
-                    if not canvas.winfo_exists() or not scrollable.winfo_exists():
-                        return
-                    bbox = canvas.bbox(tk.ALL)
-                    if bbox is not None:
-                        canvas.configure(scrollregion=bbox)
-                except tk.TclError:
-                    pass
-
-            def _canvas_resize(_evt=None):
-                try:
-                    if not canvas.winfo_exists() or not scrollable.winfo_exists():
-                        return
-                    width = _evt.width if _evt and hasattr(_evt, "width") else canvas.winfo_width()
-                    canvas.itemconfig(canvas_window, width=width)
-                    _update_scrollregion()
-                except tk.TclError:
-                    pass
-
-            scrollable.bind("<Configure>", lambda e: _update_scrollregion())
-            canvas.bind("<Configure>", lambda e: _canvas_resize(e))
-
-            # Title
-            title = ttk.Label(
-                scrollable,
-                text=f"Editing: {path.name if path else 'unknown'}",
-                font=("Arial", 11, "bold"),
-            )
-            title.pack(anchor=tk.W, pady=(0, 10))
-
-            # Buttons
-            btn_frame = ttk.Frame(scrollable)
-            btn_frame.pack(fill=tk.X, pady=(0, 10))
-            ttk.Button(btn_frame, text="Save Changes", command=self._save_interactive_changes).pack(side=tk.LEFT, padx=(0, 5))
-            ttk.Button(btn_frame, text="Reset", command=lambda: self._show_interactive_editor(path, settings)).pack(side=tk.LEFT, padx=(0, 5))
-            ttk.Button(btn_frame, text="Edit as Text", command=lambda: self._show_text_editor(path)).pack(side=tk.LEFT)
-
-            self._interactive_canvas = canvas
-            self._interactive_scrollable = scrollable
-            self._interactive_setting_values.clear()
-
-            # Build rows with BadAlloc protection.
-            for idx, setting in enumerate(settings):
-                self._safe_widget_creation(
-                    lambda s=setting, p=scrollable, i=idx: self._build_single_setting_row_safe(p, s, i)
-                )
-
-            _update_scrollregion()
-            self._mod_settings_status.config(
-                text=f"Interactive editor: {len(settings)} setting(s)", foreground="green"
-            )
-        except tk.TclError as exc:
-            err_str = str(exc).lower()
-            if "badalloc" in err_str or "insufficient" in err_str:
-                self._mod_settings_status.config(
-                    text="X server resources exhausted; showing text view.", foreground="red"
-                )
-                self._show_text_editor(path)
-            else:
-                raise
-
-    def _safe_widget_creation(self, widget_func):
-        """Create widgets and fall back to text view on X11 resource errors."""
-        try:
-            return widget_func()
-        except tk.TclError as exc:
-            err_str = str(exc).lower()
-            if "badalloc" in err_str or "insufficient" in err_str:
-                self._mod_settings_status.config(
-                    text="X server resources exhausted; showing text view.", foreground="red"
-                )
-                self._show_text_editor(self._mod_settings_path)
-                return None
-            raise
-
-    def _build_single_setting_row_safe(self, parent: tk.Frame, setting: SettingField, idx: int) -> None:
-        """Wrap row creation with BadAlloc recovery."""
-        try:
-            self._build_single_setting_row(parent, setting)
-        except tk.TclError as exc:
-            err_str = str(exc).lower()
-            if "badalloc" in err_str or "insufficient" in err_str:
-                self._mod_settings_status.config(
-                    text="X server limit reached during build; falling back to text view.",
-                    foreground="red",
-                )
-                self._show_text_editor(self._mod_settings_path)
-            else:
-                raise
-
-    def _build_single_setting_row(self, parent: tk.Frame, setting: SettingField) -> None:
-        """Create one row of the interactive editor for a single setting."""
-        row = ttk.Frame(parent)
-        row.pack(fill=tk.X, pady=2)
-
-        widget = create_widget_for_setting(
-            row,
-            setting,
-            on_change=lambda v, n=setting.name: self._on_interactive_value_changed(n, v),
-        )
-        widget.pack(fill=tk.X, expand=True)
-        self._interactive_setting_widgets[setting.name] = widget
-        self._interactive_setting_values[setting.name] = setting.value
-
-    def _on_interactive_value_changed(self, name: str, value: Any) -> None:
-        """Store a changed value from an interactive widget."""
-        self._interactive_setting_values[name] = value
-
-    def _apply_interactive_changes(self) -> bool:
-        """Write interactive editor values back to the raw text editor.
-
-        Returns True if the text editor was updated.
-        """
-        if self._mod_settings_path is None:
-            return False
-
-        suffix = self._mod_settings_path.suffix.lower()
-        text = self._mod_settings_editor.get("1.0", tk.END)
-        updated = text
-
-        try:
-            if suffix == ".json":
-                data = json.loads(text)
-                self._patch_json_values(data, self._interactive_setting_values)
-                updated = json.dumps(data, indent=4, ensure_ascii=False)
-            elif suffix in (".xml", ".cpp", ".hpp", ".txt"):
-                # Round-trip editing for these formats is lossy. Keep the user
-                # in interactive mode but do not silently overwrite the file.
-                return False
-            else:
-                return False
-        except Exception as exc:
-            messagebox.showerror("Apply Error", f"Could not apply changes: {exc}")
-            return False
-
-        self._mod_settings_editor.config(state=tk.NORMAL)
-        self._mod_settings_editor.delete("1.0", tk.END)
-        self._mod_settings_editor.insert("1.0", updated)
-        self._mod_settings_editor.config(state=tk.NORMAL)
-        return True
-
-    def _save_interactive_changes(self) -> None:
-        """Save directly from the interactive editor when safe to do so."""
-        if self._mod_settings_path is None:
-            return
-
-        suffix = self._mod_settings_path.suffix.lower()
-        if suffix != ".json":
-            # For non-JSON files, switch to the text editor with a friendly
-            # explanation so the user can save manually.
-            self._show_text_editor(self._mod_settings_path)
-            self._interactive_toggle_btn.config(text="Interactive View")
-            self._mod_settings_status.config(
-                text="Switched to text editor for this file type. Save when ready.",
-                foreground="orange",
-            )
-            return
-
-        if not self._apply_interactive_changes():
-            return
-
-        self._save_mod_settings()
-        self._mod_settings_status.config(
-            text="Interactive changes saved.", foreground="green"
-        )
-
-    def _patch_json_values(self, data: Any, values: Dict[str, Any], prefix: str = "") -> None:
-        """Recursively patch flattened dotted names into a JSON structure."""
-        if isinstance(data, dict):
-            for key, value in data.items():
-                full_name = f"{prefix}.{key}" if prefix else key
-                if full_name in values:
-                    data[key] = values[full_name]
-                elif isinstance(value, (dict, list)):
-                    self._patch_json_values(value, values, full_name)
-        elif isinstance(data, list):
-            for idx, item in enumerate(data):
-                full_name = f"{prefix}[{idx}]"
-                if full_name in values:
-                    data[idx] = values[full_name]
-                elif isinstance(item, (dict, list)):
-                    self._patch_json_values(item, values, full_name)
+        """Save the editor content through the new editor widget."""
+        self._mod_settings_editor._save()
 
     def _repair_cfg_spawnable_types(self) -> None:
         """Fix common cfgspawnabletypes.xml problems that remove vehicle tires.
@@ -2632,11 +2523,19 @@ Trader2 {
         Backs up the file, removes invalid XML comments, and ensures common
         vehicles have wheel attachments.
         """
+        with self._busy_context("Repairing cfgspawnabletypes.xml..."):
+            self._repair_cfg_spawnable_types_impl()
+
+    def _repair_cfg_spawnable_types_impl(self) -> None:
+        """Internal implementation: repair cfgspawnabletypes.xml."""
         from dayzconfigmaster.config.spawnabletypes_repair import RepairResult
 
         mission_root = self._get_current_mission_root()
         if mission_root is None:
-            messagebox.showwarning("No Mission", "Could not locate the active mission folder.")
+            messagebox.showwarning(
+                "No Mission",
+                "Could not locate the active mission folder.",
+            )
             return
 
         target_path = mission_root / "cfgspawnabletypes.xml"
@@ -2650,7 +2549,10 @@ Trader2 {
             return
 
         if not result.changed:
-            messagebox.showinfo("No Repair Needed", "cfgspawnabletypes.xml looks healthy. No tire fixes were required.")
+            messagebox.showinfo(
+                "No Repair Needed",
+                "cfgspawnabletypes.xml looks healthy. No tire fixes were required.",
+            )
             return
 
         self._refresh_mod_settings()
@@ -2660,6 +2562,84 @@ Trader2 {
             "\n".join(f"• {f}" for f in result.fixes) +
             f"\n\nBackup saved to:\n{result.backup_path}",
         )
+
+    def _repair_aircraft_lifetimes(self) -> None:
+        """Manually normalize aircraft/helicopter lifetimes for an instance."""
+        if not self._instance_vars:
+            messagebox.showwarning(
+                "No Instances",
+                "No instances are configured. Add instances in Server Config first."
+            )
+            return
+
+        # Build a simple picker from configured instances.
+        labels = []
+        for instance in self._instance_vars:
+            instance_id = int(instance.get("id", {}).get() or 1)
+            map_name = instance.get("map", {}).get() or ""
+            labels.append(f"Instance {instance_id} ({map_name})")
+
+        picker = tk.Toplevel(self.root)
+        picker.title("Select Instance")
+        picker.geometry("350x150")
+        picker.transient(self.root)
+        picker.grab_set()
+
+        ttk.Label(picker, text="Instance:").pack(pady=(10, 0))
+        selected = tk.StringVar(value=labels[0] if labels else "")
+        combo = ttk.Combobox(
+            picker, textvariable=selected, values=labels, state="readonly"
+        )
+        combo.pack(padx=10, pady=5, fill=tk.X)
+
+        def on_confirm():
+            picker.destroy()
+            label = selected.get()
+            idx = labels.index(label) if label in labels else 0
+            instance = self._instance_vars[idx]
+            instance_id = int(instance.get("id", {}).get() or 1)
+            root_folder = instance.get("root_folder", {}).get() or ""
+            root_folder = self._sanitize_instance_root(root_folder, instance_id)
+            dayz_path = self.dayz_path_var.get().strip()
+            instance_root = Path(root_folder) if root_folder else Path(dayz_path)
+            if not instance_root.exists():
+                messagebox.showerror(
+                    "Instance Not Found",
+                    f"Instance directory does not exist:\n{instance_root}"
+                )
+                return
+
+            world_name = self._resolve_world_name(
+                instance.get("map", {}).get() or "",
+                self._workshop_dir_var.get().strip(),
+            )
+            if not world_name:
+                messagebox.showerror(
+                    "No Map",
+                    f"Could not determine world name for instance {instance_id}."
+                )
+                return
+            if world_name.lower().startswith("dayzoffline.") or world_name.lower().startswith("dayz."):
+                target_name = world_name
+            else:
+                target_name = f"dayzOffline.{world_name}"
+
+            with self._busy_context(
+                f"Fixing aircraft lifetimes for instance {instance_id}..."
+            ):
+                msg = self._normalize_aircraft_lifetimes(
+                    instance_root, target_name
+                )
+            self.log_text.insert(
+                tk.END,
+                f"[{self._get_timestamp()}] Instance {instance_id}: {msg}\n",
+            )
+            messagebox.showinfo("Aircraft Lifetime Fix", msg)
+
+        btn_frame = ttk.Frame(picker)
+        btn_frame.pack(pady=10)
+        ttk.Button(btn_frame, text="Fix", command=on_confirm).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Cancel", command=picker.destroy).pack(side=tk.LEFT, padx=5)
 
     def _on_mod_tree_click(self, event) -> None:
         """Toggle checkbox state when clicking a mod tree row."""
@@ -2760,6 +2740,142 @@ Trader2 {
                 checked = mod_name in selected_names or folder in selected_folders
                 values[0] = " ☑ " if checked else " ☐ "
                 self._mod_tree.item(item_id, values=values)
+
+    def _get_mod_tree_checked_names(self) -> List[str]:
+        """Return the ordered list of currently checked mod display names."""
+        checked: List[str] = []
+        if self._mod_tree is None:
+            return checked
+        for item_id in self._mod_tree.get_children():
+            values = self._mod_tree.item(item_id, "values")
+            if len(values) >= 2 and values[0] == " ☑ ":
+                checked.append(str(values[1]))
+        return checked
+
+    def _apply_mod_preset_to_tree(self) -> None:
+        """Load a saved preset and update the mod tree check state."""
+        name = self._mods_tab_preset_var.get()
+        if not name:
+            messagebox.showinfo("Load Preset", "Please select a preset to load.")
+            return
+        mgr = self._get_mod_preset_manager()
+        preset = mgr.get_preset(name)
+        if preset is None:
+            messagebox.showerror("Preset Error", f"Preset '{name}' not found.")
+            return
+
+        target_names = {m.strip() for m in preset.mods if m.strip()}
+        target_folders = {
+            Path(m).name for m in preset.mods
+        }
+
+        if self._mod_tree is not None:
+            for item_id in self._mod_tree.get_children():
+                values = list(self._mod_tree.item(item_id, "values"))
+                if len(values) < 2:
+                    continue
+                mod_name = values[1]
+                folder = self._mod_folder_by_name.get(mod_name, "")
+                folder_name = Path(folder).name if folder else ""
+                checked = (
+                    mod_name in target_names
+                    or folder in target_folders
+                    or folder_name in target_names
+                )
+                values[0] = " ☑ " if checked else " ☐ "
+                self._mod_tree.item(item_id, values=values)
+                if checked:
+                    self._selected_mods.add(mod_name)
+                else:
+                    self._selected_mods.discard(mod_name)
+
+        self._update_mod_paths_from_selection()
+        self.log_text.insert(
+            tk.END,
+            f"[{self._get_timestamp()}] Loaded mod preset "
+            f"'{name}'\n",
+        )
+
+    def _save_mod_preset_from_tree(self) -> None:
+        """Save the currently checked mods as a named preset."""
+        checked = self._get_mod_tree_checked_names()
+        if not checked:
+            messagebox.showwarning("No Mods", "No mods are selected to save.")
+            return
+        name = simpledialog.askstring(
+            "Save Mod Preset",
+            "Enter a name for this mod preset:",
+        )
+        if not name:
+            return
+        mgr = self._get_mod_preset_manager()
+        ok, msg = mgr.save_preset(name, checked)
+        if ok:
+            self._refresh_mods_tab_preset_combo()
+            self._refresh_instance_mod_preset_combos()
+            self._mods_tab_preset_var.set(name)
+        self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {msg}\n")
+        if not ok:
+            messagebox.showerror("Preset Error", msg)
+
+    def _delete_mod_preset_from_tree(self) -> None:
+        """Delete the preset selected in the Mods tab dropdown."""
+        name = self._mods_tab_preset_var.get()
+        if not name:
+            messagebox.showinfo("Delete Preset", "Please select a preset to delete.")
+            return
+        if not messagebox.askyesno("Delete Preset", f"Delete mod preset '{name}'?"):
+            return
+        mgr = self._get_mod_preset_manager()
+        ok, msg = mgr.delete_preset(name)
+        if ok:
+            self._mods_tab_preset_var.set("")
+            self._refresh_mods_tab_preset_combo()
+            self._refresh_instance_mod_preset_combos()
+        self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {msg}\n")
+
+    def _refresh_mods_tab_preset_combo(self) -> None:
+        """Refresh the Mods tab preset dropdown values."""
+        names = self._get_mod_preset_manager().list_presets()
+        if hasattr(self, "_mods_tab_preset_combo"):
+            self._mods_tab_preset_combo.config(values=names)
+
+    def _export_mod_presets(self) -> None:
+        """Export all mod presets to a JSON file chosen by the user."""
+        path = filedialog.asksaveasfilename(
+            title="Export Mod Presets",
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        ok, msg = self._get_mod_preset_manager().export_presets(Path(path))
+        self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {msg}\n")
+        if not ok:
+            messagebox.showerror("Export Error", msg)
+
+    def _import_mod_presets(self) -> None:
+        """Import mod presets from a JSON file chosen by the user."""
+        path = filedialog.askopenfilename(
+            title="Import Mod Presets",
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        overwrite = messagebox.askyesno(
+            "Import Presets",
+            "Overwrite existing presets if names match?",
+        )
+        ok, msg = self._get_mod_preset_manager().import_presets(
+            Path(path), overwrite=overwrite
+        )
+        self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {msg}\n")
+        if ok:
+            self._refresh_mods_tab_preset_combo()
+            self._refresh_instance_mod_preset_combos()
+        else:
+            messagebox.showerror("Import Error", msg)
 
     def _browse_mod_directory(self) -> None:
         """Browse for a local mod directory and add it to the selection."""
@@ -2990,6 +3106,11 @@ Trader2 {
 
     def _refresh_mission_list(self) -> None:
         """Refresh the mission list from configured mission directories."""
+        with self._busy_context("Refreshing mission list..."):
+            self._refresh_mission_list_impl()
+
+    def _refresh_mission_list_impl(self) -> None:
+        """Internal implementation: refresh the mission list."""
         if self._mission_tree is None:
             return
 
@@ -3088,22 +3209,28 @@ Trader2 {
 
     def _refresh_workshop_lists(self) -> None:
         """Refresh both map and mod lists from the configured workshop directory."""
-        workshop_dir = self._get_workshop_directory()
-        if not workshop_dir or not Path(workshop_dir).exists():
-            messagebox.showwarning("Workshop Directory", "Please set a valid Workshop directory first.")
-            return
+        with self._busy_context("Scanning workshop content..."):
+            workshop_dir = self._get_workshop_directory()
+            if not workshop_dir or not Path(workshop_dir).exists():
+                messagebox.showwarning(
+                    "Workshop Directory",
+                    "Please set a valid Workshop directory first.",
+                )
+                return
 
-        content_path = Path(workshop_dir)
-        if not content_path.exists() or not any(content_path.iterdir()):
-            messagebox.showinfo("No Workshop Items",
-                              f"No workshop content found at:\n{content_path}")
-            return
+            content_path = Path(workshop_dir)
+            if not content_path.exists() or not any(content_path.iterdir()):
+                messagebox.showinfo(
+                    "No Workshop Items",
+                    f"No workshop content found at:\n{content_path}",
+                )
+                return
 
-        # Rebuild the world-name map whenever workshop lists are refreshed.
-        self._workshop_world_name_cache = None
-        self._workshop_world_name_cache_dir = None
+            # Rebuild the world-name map whenever workshop lists are refreshed.
+            self._workshop_world_name_cache = None
+            self._workshop_world_name_cache_dir = None
 
-        self._scan_workshop_content(content_path)
+            self._scan_workshop_content(content_path)
         self._refresh_all_map_combos()
         self._refresh_mission_list()
 
@@ -3290,10 +3417,14 @@ Trader2 {
         except ImportError:
             from dayzconfigmaster.workshop.local_parser import LocalWorkshopMetadataParser
 
-        parser = LocalWorkshopMetadataParser(steam_path)
-        orphans = parser.find_unsubscribed_folders()
+        with self._busy_context("Scanning for unsubscribed workshop items..."):
+            parser = LocalWorkshopMetadataParser(steam_path)
+            orphans = parser.find_unsubscribed_folders()
         if not orphans:
-            messagebox.showinfo("No Cleanup Needed", "All workshop folders are currently subscribed.")
+            messagebox.showinfo(
+                "No Cleanup Needed",
+                "All workshop folders are currently subscribed.",
+            )
             return
 
         # Build a selection dialog so the user can uncheck items they want to keep.
@@ -3384,15 +3515,20 @@ Trader2 {
             deleted: List[str] = []
             failed: List[str] = []
             freed = 0
-            for ws_id in selected_ids:
-                path = Path(workshop_dir) / ws_id
-                try:
-                    size = sum(f.stat().st_size for f in path.rglob('*') if f.is_file())
-                    shutil.rmtree(path)
-                    deleted.append(ws_id)
-                    freed += size
-                except Exception as exc:
-                    failed.append(f"{ws_id}: {exc}")
+            with self._busy_context("Deleting unsubscribed workshop items..."):
+                for ws_id in selected_ids:
+                    path = Path(workshop_dir) / ws_id
+                    try:
+                        size = sum(
+                            f.stat().st_size
+                            for f in path.rglob('*')
+                            if f.is_file()
+                        )
+                        shutil.rmtree(path)
+                        deleted.append(ws_id)
+                        freed += size
+                    except Exception as exc:
+                        failed.append(f"{ws_id}: {exc}")
 
             dialog.destroy()
             self._refresh_mod_list()
@@ -4223,7 +4359,36 @@ wait
             variable=generate_systemd_var
         ).pack(side=tk.LEFT, padx=5)
 
+        def force_full_redeploy():
+            if not messagebox.askyesno(
+                "Confirm Force Redeploy",
+                "Clear the deployment manifest and force a full redeploy on the next start?\n\n"
+                "Use this after manually editing deployed files.",
+            ):
+                return
+            for instance in self._instance_vars:
+                instance_id = int(instance.get("id", {}).get() or 1)
+                root_folder = instance.get("root_folder", {}).get() or ""
+                root_folder = self._sanitize_instance_root(root_folder, instance_id)
+                dayz_path = self.dayz_path_var.get().strip()
+                instance_root = Path(root_folder) if root_folder else Path(dayz_path)
+                if instance_root.exists():
+                    mgr = DeploymentManifestManager(instance_root)
+                    mgr.mark_forced()
+                    self.log_text.insert(
+                        tk.END,
+                        f"[{self._get_timestamp()}] Instance {instance_id}: deployment manifest cleared; next start will do a full redeploy.\n",
+                    )
+
+        ttk.Button(deploy_options_frame, text="Force Full Redeploy", command=force_full_redeploy).pack(
+            side=tk.LEFT, padx=5
+        )
+
         def deploy_instances():
+            with self._busy_context("Deploying instances..."):
+                _deploy_instances_impl()
+
+        def _deploy_instances_impl():
             base_server_dir = Path(self.dayz_path_var.get().strip())
             if not base_server_dir.exists():
                 messagebox.showerror(
@@ -4290,7 +4455,7 @@ wait
                 mission_source_str = mission_source.get() if mission_source is not None else ""
                 mission_source_path = Path(mission_source_str) if mission_source_str.strip() else None
                 try:
-                    mission_msg = self._deploy_mission_folder(
+                    mission_msg, mission_target = self._deploy_mission_folder(
                         instance_root=result.instance_dir,
                         dayz_path=base_server_dir,
                         map_display_name=map_display_name,
@@ -4300,6 +4465,11 @@ wait
                     result.messages.append(mission_msg)
                     if mission_msg.startswith("ERROR"):
                         result.errors.append(mission_msg)
+                    elif mission_target:
+                        lifetime_msg = self._normalize_aircraft_lifetimes(
+                            result.instance_dir, mission_target
+                        )
+                        result.messages.append(lifetime_msg)
                 except Exception as exc:
                     result.errors.append(f"Mission folder deployment failed: {exc}")
 
@@ -4342,6 +4512,574 @@ wait
 
         deploy_btn = ttk.Button(deploy_frame, text="🚀 Deploy Instances", command=deploy_instances)
         deploy_btn.pack(pady=5)
+
+        # Mission XML maintenance section.
+        xml_frame = ttk.LabelFrame(
+            cleaning_frame.frame, text="Mission XML Maintenance", padding=10
+        )
+        xml_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
+        ttk.Label(
+            xml_frame,
+            text="Fix common central-economy problems that delete admin-placed assets.",
+            wraplength=800,
+            font=("Arial", 9),
+        ).pack(anchor=tk.W, padx=5, pady=(0, 5))
+        ttk.Button(
+            xml_frame,
+            text="✈️ Fix Aircraft Lifetimes",
+            command=self._repair_aircraft_lifetimes,
+        ).pack(anchor=tk.W, padx=5, pady=2)
+
+        # Storage backups and player restore UI.
+        self._create_house_cleaning_backup_ui(cleaning_frame.frame)
+
+    def _create_house_cleaning_backup_ui(self, parent: tk.Widget) -> None:
+        """Add per-instance storage_1 backup and players.db restore UI."""
+        backup_frame = ttk.LabelFrame(parent, text="Instance Storage Backups", padding=10)
+        backup_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
+
+        # Instance selector
+        selector_frame = ttk.Frame(backup_frame)
+        selector_frame.pack(fill=tk.X, pady=(0, 5))
+        ttk.Label(selector_frame, text="Instance:").pack(side=tk.LEFT)
+        self._backup_instance_var = tk.StringVar()
+        self._backup_instance_combo = ttk.Combobox(
+            selector_frame,
+            textvariable=self._backup_instance_var,
+            state="readonly",
+            width=40,
+        )
+        self._backup_instance_combo.pack(side=tk.LEFT, padx=5)
+        self._backup_instance_combo.bind(
+            "<<ComboboxSelected>>", lambda _e: self._refresh_storage_backup_list()
+        )
+
+        # Settings
+        settings_frame = ttk.Frame(backup_frame)
+        settings_frame.pack(fill=tk.X, pady=5)
+        ttk.Label(settings_frame, text="Max backup age before start (min):").pack(side=tk.LEFT)
+        self._storage_backup_max_age_minutes_var = tk.StringVar(value="60")
+        ttk.Entry(settings_frame, textvariable=self._storage_backup_max_age_minutes_var, width=8).pack(
+            side=tk.LEFT, padx=5
+        )
+        ttk.Label(settings_frame, text="Retention count:").pack(side=tk.LEFT, padx=(15, 0))
+        self._storage_backup_retention_var = tk.StringVar(value="14")
+        ttk.Entry(settings_frame, textvariable=self._storage_backup_retention_var, width=8).pack(
+            side=tk.LEFT, padx=5
+        )
+
+        # Backup list
+        list_frame = ttk.Frame(backup_frame)
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        list_frame.columnconfigure(0, weight=1)
+        list_frame.rowconfigure(0, weight=1)
+
+        cols = ("Date", "Size", "Path")
+        self._storage_backup_tree = ttk.Treeview(list_frame, columns=cols, show="headings")
+        for c in cols:
+            self._storage_backup_tree.heading(c, text=c)
+            self._storage_backup_tree.column(c, width=140 if c == "Size" else 220)
+        self._storage_backup_tree.grid(row=0, column=0, sticky=tk.NSEW)
+        scroll = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self._storage_backup_tree.yview)
+        scroll.grid(row=0, column=1, sticky=tk.NS)
+        self._storage_backup_tree.configure(yscrollcommand=scroll.set)
+
+        # Buttons
+        btn_frame = ttk.Frame(backup_frame)
+        btn_frame.pack(fill=tk.X, pady=5)
+        ttk.Button(btn_frame, text="Refresh", command=self._refresh_storage_backup_list).pack(
+            side=tk.LEFT, padx=2
+        )
+        ttk.Button(btn_frame, text="Backup Now", command=self._backup_storage_now).pack(
+            side=tk.LEFT, padx=2
+        )
+        ttk.Button(btn_frame, text="Restore Selected", command=self._restore_storage_backup).pack(
+            side=tk.LEFT, padx=2
+        )
+        ttk.Button(btn_frame, text="Delete Selected", command=self._delete_storage_backup).pack(
+            side=tk.LEFT, padx=2
+        )
+        ttk.Button(btn_frame, text="Prune Old", command=self._prune_storage_backups).pack(
+            side=tk.LEFT, padx=2
+        )
+        ttk.Button(btn_frame, text="Start Fresh", command=self._start_storage_fresh).pack(
+            side=tk.LEFT, padx=2
+        )
+
+        # Player restore section
+        player_frame = ttk.LabelFrame(parent, text="Player Data Restore", padding=10)
+        player_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
+
+        ttk.Label(
+            player_frame,
+            text="Compare the current players.db with a backup and splice a single player's Data blob back into the live database.",
+            wraplength=800,
+            foreground="gray",
+        ).pack(anchor=tk.W, pady=(0, 5))
+
+        player_btn_frame = ttk.Frame(player_frame)
+        player_btn_frame.pack(fill=tk.X, pady=5)
+        ttk.Button(
+            player_btn_frame,
+            text="Open Player Restore Tool...",
+            command=self._open_player_restore_dialog,
+        ).pack(side=tk.LEFT, padx=2)
+
+        # Scheduler section
+        scheduler_frame = ttk.LabelFrame(parent, text="Scheduled Events", padding=10)
+        scheduler_frame.pack(fill=tk.X, padx=10, pady=(10, 0))
+
+        ttk.Checkbutton(
+            scheduler_frame,
+            text="Enable scheduled events (restart / backup / message)",
+            variable=self._scheduler_enabled_var,
+            command=self._toggle_event_scheduler,
+        ).pack(anchor=tk.W, padx=5, pady=2)
+
+        scheduler_btn_frame = ttk.Frame(scheduler_frame)
+        scheduler_btn_frame.pack(fill=tk.X, padx=5, pady=5)
+        ttk.Button(
+            scheduler_btn_frame,
+            text="Run Backup Now",
+            command=lambda: self._on_scheduler_backup(type("Event", (), {"name": "Manual backup"})()),
+        ).pack(side=tk.LEFT, padx=2)
+        ttk.Button(
+            scheduler_btn_frame,
+            text="Edit Events...",
+            command=self._open_scheduler_editor,
+        ).pack(side=tk.LEFT, padx=2)
+
+        # Bind instance list refresh to multi-instance changes.
+        self._refresh_backup_instance_selector()
+
+    def _get_backup_instance_selection(self) -> Optional[Dict[str, Any]]:
+        selected = self._backup_instance_var.get()
+        for instance in getattr(self, "_instance_vars", []):
+            name = self._instance_display_name(instance)
+            if name == selected:
+                return instance
+        return None
+
+    def _refresh_backup_instance_selector(self) -> None:
+        names = [self._instance_display_name(i) for i in getattr(self, "_instance_vars", [])]
+        if hasattr(self, "_backup_instance_combo"):
+            self._backup_instance_combo.config(values=names)
+            current = self._backup_instance_var.get()
+            if current not in names and names:
+                self._backup_instance_var.set(names[0])
+            self._refresh_storage_backup_list()
+
+    def _open_scheduler_editor(self) -> None:
+        """Open a simple dialog to add/remove scheduled events."""
+        dialog = self._safe_toplevel("Scheduled Events", "700x500")
+        if dialog is None:
+            return
+
+        dialog.columnconfigure(0, weight=1)
+        dialog.rowconfigure(0, weight=1)
+
+        tree = ttk.Treeview(
+            dialog,
+            columns=("Name", "CRON", "Type", "Enabled", "Next"),
+            show="headings",
+        )
+        for c in ("Name", "CRON", "Type", "Enabled", "Next"):
+            tree.heading(c, text=c)
+            tree.column(c, width=120)
+        tree.grid(row=0, column=0, sticky=tk.NSEW, padx=10, pady=5)
+        scroll = ttk.Scrollbar(dialog, orient=tk.VERTICAL, command=tree.yview)
+        scroll.grid(row=0, column=1, sticky=tk.NS, pady=5)
+        tree.configure(yscrollcommand=scroll.set)
+
+        def _refresh() -> None:
+            for item in tree.get_children():
+                tree.delete(item)
+            if self._event_scheduler is None:
+                return
+            for event in self._event_scheduler._events:
+                next_run = event.next_run.strftime("%Y-%m-%d %H:%M") if event.next_run else "—"
+                tree.insert(
+                    "",
+                    tk.END,
+                    values=(event.name, event.cron, event.event_type.value, str(event.enabled), next_run),
+                )
+
+        _refresh()
+
+        controls = ttk.Frame(dialog)
+        controls.grid(row=1, column=0, columnspan=2, sticky=tk.EW, padx=10, pady=5)
+
+        ttk.Label(controls, text="Name:").pack(side=tk.LEFT)
+        name_var = tk.StringVar()
+        ttk.Entry(controls, textvariable=name_var, width=12).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(controls, text="CRON:").pack(side=tk.LEFT, padx=(10, 0))
+        cron_var = tk.StringVar(value="0 4 * * *")
+        ttk.Entry(controls, textvariable=cron_var, width=14).pack(side=tk.LEFT, padx=2)
+
+        ttk.Label(controls, text="Type:").pack(side=tk.LEFT, padx=(10, 0))
+        type_var = tk.StringVar(value="backup")
+        ttk.Combobox(
+            controls,
+            textvariable=type_var,
+            values=[t.value for t in EventType],
+            state="readonly",
+            width=12,
+        ).pack(side=tk.LEFT, padx=2)
+
+        def _add() -> None:
+            if self._event_scheduler is None:
+                return
+            try:
+                etype = EventType(type_var.get())
+                self._event_scheduler.add_event(name_var.get(), cron_var.get(), etype)
+                self._event_scheduler.save_events()
+                _refresh()
+            except Exception as exc:
+                messagebox.showerror("Error", str(exc))
+
+        def _remove() -> None:
+            sel = tree.selection()
+            if not sel or self._event_scheduler is None:
+                return
+            name = tree.item(sel[0], "values")[0]
+            self._event_scheduler.remove_event(name)
+            self._event_scheduler.save_events()
+            _refresh()
+
+        def _toggle() -> None:
+            sel = tree.selection()
+            if not sel or self._event_scheduler is None:
+                return
+            name = tree.item(sel[0], "values")[0]
+            self._event_scheduler.toggle_event(name)
+            self._event_scheduler.save_events()
+            _refresh()
+
+        ttk.Button(controls, text="Add", command=_add).pack(side=tk.LEFT, padx=2)
+        ttk.Button(controls, text="Toggle", command=_toggle).pack(side=tk.LEFT, padx=2)
+        ttk.Button(controls, text="Remove", command=_remove).pack(side=tk.LEFT, padx=2)
+        ttk.Button(controls, text="Close", command=dialog.destroy).pack(side=tk.RIGHT, padx=2)
+
+    def _storage_backup_manager_for_selection(self) -> Optional[Tuple["InstanceStorageBackupManager", Path]]:
+        instance = self._get_backup_instance_selection()
+        if instance is None:
+            return None
+        instance_id = int(instance.get("id", {}).get() or 1)
+        map_name = instance.get("map", {}).get() or ""
+        root_folder = instance.get("root_folder", {}).get() or ""
+        root_folder = self._sanitize_instance_root(root_folder, instance_id)
+        dayz_path = self.dayz_path_var.get().strip()
+        instance_root = Path(root_folder) if root_folder else Path(dayz_path)
+
+        from dayzconfigmaster.mods.integration import ModIntegrationManager
+
+        mission_dir = ModIntegrationManager(instance_root)._find_mission_dir()
+        if mission_dir is None:
+            return None
+        storage_path = mission_dir / "storage_1"
+        mgr = InstanceStorageBackupManager(instance_root, instance_id, map_name)
+        return mgr, storage_path
+
+    def _refresh_storage_backup_list(self, event=None) -> None:
+        if not hasattr(self, "_storage_backup_tree"):
+            return
+        for item in self._storage_backup_tree.get_children():
+            self._storage_backup_tree.delete(item)
+
+        selection = self._storage_backup_manager_for_selection()
+        if selection is None:
+            return
+        mgr, _storage_path = selection
+        for info in mgr.list_backups():
+            size_mb = info.size_bytes / (1024 * 1024)
+            self._storage_backup_tree.insert(
+                "",
+                tk.END,
+                values=(
+                    info.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                    f"{size_mb:.2f} MB",
+                    str(info.path),
+                ),
+            )
+
+    def _backup_storage_now(self) -> None:
+        selection = self._storage_backup_manager_for_selection()
+        if selection is None:
+            messagebox.showwarning("No Instance", "Select an instance first.")
+            return
+        mgr, storage_path = selection
+        if not storage_path.exists():
+            messagebox.showwarning("No storage_1", "No storage_1 folder found for this instance.")
+            return
+        ok, msg = mgr.create_backup(storage_path)
+        if ok:
+            messagebox.showinfo("Backup Created", msg)
+        else:
+            messagebox.showerror("Backup Failed", msg)
+        self._refresh_storage_backup_list()
+
+    def _restore_storage_backup(self) -> None:
+        selection = self._storage_backup_manager_for_selection()
+        if selection is None:
+            messagebox.showwarning("No Instance", "Select an instance first.")
+            return
+        mgr, storage_path = selection
+
+        selected = self._storage_backup_tree.selection()
+        if not selected:
+            messagebox.showwarning("No Backup", "Select a backup to restore.")
+            return
+        values = self._storage_backup_tree.item(selected[0], "values")
+        backup_path = Path(values[2])
+
+        if not messagebox.askyesno(
+            "Confirm Restore",
+            f"Restore {backup_path.name} over the current storage_1?\n\n"
+            "This will overwrite current player data.",
+        ):
+            return
+
+        ok, msg = mgr.restore_backup(backup_path, storage_path)
+        if ok:
+            messagebox.showinfo("Restore Complete", msg)
+        else:
+            messagebox.showerror("Restore Failed", msg)
+
+    def _delete_storage_backup(self) -> None:
+        selection = self._storage_backup_manager_for_selection()
+        if selection is None:
+            return
+        mgr, _storage_path = selection
+
+        selected = self._storage_backup_tree.selection()
+        if not selected:
+            return
+        values = self._storage_backup_tree.item(selected[0], "values")
+        backup_path = Path(values[2])
+
+        if not messagebox.askyesno("Confirm Delete", f"Delete backup {backup_path.name}?"):
+            return
+
+        ok, msg = mgr.delete_backup(backup_path)
+        if ok:
+            self._refresh_storage_backup_list()
+        else:
+            messagebox.showerror("Delete Failed", msg)
+
+    def _prune_storage_backups(self) -> None:
+        selection = self._storage_backup_manager_for_selection()
+        if selection is None:
+            return
+        mgr, _storage_path = selection
+
+        try:
+            max_count = int(self._storage_backup_retention_var.get())
+        except ValueError:
+            max_count = 14
+
+        deleted, messages = mgr.prune(max_count=max_count)
+        messagebox.showinfo("Prune Complete", f"Deleted {deleted} backup(s).")
+        self._refresh_storage_backup_list()
+
+    def _start_storage_fresh(self) -> None:
+        """Reset the selected instance's storage_1 to a clean, empty state."""
+        selection = self._storage_backup_manager_for_selection()
+        if selection is None:
+            messagebox.showwarning("No Instance", "Select an instance first.")
+            return
+        mgr, storage_path = selection
+
+        if not storage_path.exists():
+            messagebox.showinfo("Already Fresh", "No storage_1 folder exists for this instance.")
+            return
+
+        if not messagebox.askyesno(
+            "Confirm Start Fresh",
+            "Reset storage_1 to a clean, empty state?\n\n"
+            "A safety backup of the current data will be created first.",
+        ):
+            return
+
+        ok, msg = mgr.start_fresh(storage_path)
+        if ok:
+            messagebox.showinfo("Fresh Start", msg)
+        else:
+            messagebox.showerror("Fresh Start Failed", msg)
+        self._refresh_storage_backup_list()
+
+    def _open_player_restore_dialog(self) -> None:
+        """Open a dialog to compare and splice players.db rows."""
+        selection = self._storage_backup_manager_for_selection()
+        if selection is None:
+            messagebox.showwarning("No Instance", "Select an instance first.")
+            return
+        mgr, storage_path = selection
+        current_db = find_players_db(storage_path)
+        if current_db is None:
+            messagebox.showwarning("No players.db", "No players.db found for this instance.")
+            return
+
+        dialog = self._safe_toplevel("Player Data Restore", "900x600")
+        if dialog is None:
+            return
+
+        dialog.columnconfigure(0, weight=1)
+        dialog.rowconfigure(1, weight=1)
+
+        ttk.Label(
+            dialog,
+            text="Select a backup, then choose a player to splice their Data blob into the live players.db.",
+            wraplength=850,
+        ).grid(row=0, column=0, sticky=tk.W, padx=10, pady=5)
+
+        paned = ttk.PanedWindow(dialog, orient=tk.HORIZONTAL)
+        paned.grid(row=1, column=0, sticky=tk.NSEW, padx=10, pady=5)
+        dialog.rowconfigure(1, weight=1)
+
+        # Left: backup list
+        left = ttk.LabelFrame(paned, text="Backups", padding=5)
+        left.columnconfigure(0, weight=1)
+        left.rowconfigure(0, weight=1)
+        backup_tree = ttk.Treeview(left, columns=("Date",), show="headings")
+        backup_tree.heading("Date", text="Date")
+        backup_tree.column("Date", width=180)
+        backup_tree.grid(row=0, column=0, sticky=tk.NSEW)
+        backup_scroll = ttk.Scrollbar(left, orient=tk.VERTICAL, command=backup_tree.yview)
+        backup_scroll.grid(row=0, column=1, sticky=tk.NS)
+        backup_tree.configure(yscrollcommand=backup_scroll.set)
+
+        backups = mgr.list_backups()
+        backup_map: Dict[str, Path] = {}
+        for info in backups:
+            name = info.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            backup_map[name] = info.path
+            backup_tree.insert("", tk.END, values=(name,))
+
+        # Right: diff list and details
+        right = ttk.LabelFrame(paned, text="Players", padding=5)
+        right.columnconfigure(0, weight=1)
+        right.rowconfigure(0, weight=1)
+
+        diff_tree = ttk.Treeview(
+            right,
+            columns=("UID", "Status", "Current", "Backup"),
+            show="headings",
+        )
+        for c in ("UID", "Status", "Current", "Backup"):
+            diff_tree.heading(c, text=c)
+            diff_tree.column(c, width=160)
+        diff_tree.grid(row=0, column=0, sticky=tk.NSEW)
+        diff_scroll = ttk.Scrollbar(right, orient=tk.VERTICAL, command=diff_tree.yview)
+        diff_scroll.grid(row=0, column=1, sticky=tk.NS)
+        diff_tree.configure(yscrollcommand=diff_scroll.set)
+
+        details = scrolledtext.ScrolledText(right, wrap=tk.WORD, height=8)
+        details.grid(row=1, column=0, columnspan=2, sticky=tk.EW, pady=(5, 0))
+
+        paned.add(left, weight=1)
+        paned.add(right, weight=3)
+
+        current_diffs: List[Any] = []
+
+        def _load_diff(_event=None) -> None:
+            for item in diff_tree.get_children():
+                diff_tree.delete(item)
+            current_diffs.clear()
+
+            sel = backup_tree.selection()
+            if not sel:
+                return
+            name = backup_tree.item(sel[0], "values")[0]
+            backup_path = backup_map.get(name)
+            if backup_path is None:
+                return
+            backup_db = find_players_db(backup_path)
+            if backup_db is None:
+                messagebox.showerror("No players.db", "No players.db found in selected backup.")
+                return
+
+            ok, diffs, msg = compare_players_dbs(current_db, backup_db)
+            if not ok:
+                messagebox.showerror("Compare Failed", msg)
+                return
+
+            current_diffs.extend(diffs)
+            for diff in diffs:
+                cur = f"{diff.current.data_size} bytes" if diff.current else "—"
+                bak = f"{diff.backup.data_size} bytes" if diff.backup else "—"
+                diff_tree.insert(
+                    "",
+                    tk.END,
+                    values=(diff.uid, diff.status, cur, bak),
+                    tags=("restorable" if diff.is_restorable else "readonly",),
+                )
+
+        def _on_diff_select(_event=None) -> None:
+            details.delete("1.0", tk.END)
+            sel = diff_tree.selection()
+            if not sel:
+                return
+            idx = diff_tree.index(sel[0])
+            diff = current_diffs[idx]
+            lines = [
+                f"UID: {diff.uid}",
+                f"Status: {diff.status}",
+            ]
+            if diff.current:
+                lines.append(
+                    f"Current: Id={diff.current.player_id}, Alive={diff.current.alive}, "
+                    f"Data={diff.current.data_size} bytes"
+                )
+            if diff.backup:
+                lines.append(
+                    f"Backup: Id={diff.backup.player_id}, Alive={diff.backup.alive}, "
+                    f"Data={diff.backup.data_size} bytes"
+                )
+            details.insert(tk.END, "\n".join(lines))
+
+        def _splice_selected() -> None:
+            sel = diff_tree.selection()
+            if not sel:
+                return
+            idx = diff_tree.index(sel[0])
+            diff = current_diffs[idx]
+            if not diff.is_restorable:
+                messagebox.showwarning("Not Restorable", "No backup data for this UID.")
+                return
+
+            sel_backup = backup_tree.selection()
+            if not sel_backup:
+                return
+            name = backup_tree.item(sel_backup[0], "values")[0]
+            backup_db = find_players_db(backup_map[name])
+            if backup_db is None:
+                return
+
+            if not messagebox.askyesno(
+                "Confirm Splice",
+                f"Replace player {diff.uid} in the live players.db with data from backup {name}?\n\n"
+                "A safety backup of the current DB will be created first.",
+            ):
+                return
+
+            splicer = PlayersDbSplicer(current_db)
+            ok, msg = splicer.splice_player(backup_db, diff.uid)
+            if ok:
+                messagebox.showinfo("Splice Complete", msg)
+                _load_diff()
+            else:
+                messagebox.showerror("Splice Failed", msg)
+
+        backup_tree.bind("<<TreeviewSelect>>", _load_diff)
+        diff_tree.bind("<<TreeviewSelect>>", _on_diff_select)
+
+        btn_frame = ttk.Frame(dialog)
+        btn_frame.grid(row=2, column=0, sticky=tk.EW, padx=10, pady=5)
+        ttk.Button(btn_frame, text="Splice Selected Player", command=_splice_selected).pack(
+            side=tk.LEFT, padx=2
+        )
+        ttk.Button(btn_frame, text="Close", command=dialog.destroy).pack(side=tk.RIGHT, padx=2)
 
     def _create_server_control_tab(self):
         """Create the unified Server Control tab with inner tabs."""
@@ -4807,6 +5545,293 @@ Requirements:
 
         mgr.apply_integration(mod_folders, active_mods=active_mods)
 
+    def _ensure_instance_storage_backup(
+        self,
+        instance: Dict[str, Any],
+        force: bool = False,
+    ) -> Tuple[bool, str, Optional[Path]]:
+        """Back up storage_1 for an instance.
+
+        Uses the per-instance backup manager. Returns (ok, message, backup_path).
+        """
+        instance_id = int(instance.get("id", {}).get() or 1)
+        map_name = instance.get("map", {}).get() or ""
+        root_folder = instance.get("root_folder", {}).get() or ""
+        root_folder = self._sanitize_instance_root(root_folder, instance_id)
+        dayz_path = self.dayz_path_var.get().strip()
+        instance_root = Path(root_folder) if root_folder else Path(dayz_path)
+
+        if not instance_root.exists():
+            # Nothing to back up yet; this is fine on first start.
+            return True, f"Instance {instance_id}: instance root does not exist yet, skipping storage backup.", None
+
+        # Resolve mission directory to find storage_1.
+        from dayzconfigmaster.mods.integration import ModIntegrationManager
+
+        mission_dir = ModIntegrationManager(instance_root)._find_mission_dir()
+        if mission_dir is None:
+            return True, f"Instance {instance_id}: no mission folder found, skipping storage backup.", None
+
+        storage_path = mission_dir / "storage_1"
+        if not storage_path.exists():
+            return True, f"Instance {instance_id}: no storage_1 folder found, skipping storage backup.", None
+
+        mgr = InstanceStorageBackupManager(instance_root, instance_id, map_name)
+        ok, msg = mgr.ensure_backup_before_start(
+            storage_path,
+            max_age_minutes=self._get_storage_backup_max_age_minutes(),
+            force=force,
+        )
+        backup_path = Path(msg) if ok and Path(msg).exists() else None
+        return ok, msg, backup_path
+
+    def _get_storage_backup_max_age_minutes(self) -> int:
+        """Return the configured max age before a new startup backup is created."""
+        try:
+            return int(getattr(self, "_storage_backup_max_age_minutes_var", tk.StringVar(value="60")).get())
+        except ValueError:
+            return 60
+
+    def _maybe_rollover_storage_for_map_change(
+        self,
+        instance: Dict[str, Any],
+    ) -> Tuple[bool, str, Optional[Path]]:
+        """Handle map swaps by restoring or resetting storage_1.
+
+        If the configured map differs from the last-run map, look for the
+        most recent backup of the configured map across all instances. Offer
+        to restore it, start fresh, or cancel.
+
+        Returns (proceed, message, backup_path_used).
+        """
+        instance_id = int(instance.get("id", {}).get() or 1)
+        map_name = instance.get("map", {}).get() or ""
+        root_folder = instance.get("root_folder", {}).get() or ""
+        root_folder = self._sanitize_instance_root(root_folder, instance_id)
+        dayz_path = self.dayz_path_var.get().strip()
+        instance_root = Path(root_folder) if root_folder else Path(dayz_path)
+
+        if not map_name or not instance_root.exists():
+            return True, "no map change check needed", None
+
+        tracker = InstanceMapStorageTracker(instance_root)
+        state = tracker.load()
+        last_map = state.last_run_map
+
+        if not last_map or last_map.lower() == map_name.lower():
+            return True, f"Instance {instance_id}: map unchanged ({map_name})", None
+
+        # Map has changed. Look for backups of the new map anywhere.
+        projects_root = Path(self._get_projects_root())
+        candidates = find_map_backups_across_instances(
+            projects_root,
+            map_name,
+            exclude_instance_root=instance_root,
+        )
+
+        # Determine the mission folder for the configured map. We cannot rely
+        # on _find_mission_dir because the old map's folder may still exist.
+        workshop_dir = self._get_workshop_directory() or ""
+        world_name = self._resolve_world_name(map_name, workshop_dir)
+        if not world_name:
+            return True, f"Instance {instance_id}: could not resolve world name for {map_name}; will deploy fresh", None
+
+        if world_name.lower().startswith("dayzoffline.") or world_name.lower().startswith("dayz."):
+            mission_name = world_name
+        else:
+            mission_name = f"dayzOffline.{world_name}"
+
+        mission_dir = instance_root / "mpmissions" / mission_name
+        storage_path = mission_dir / "storage_1"
+        mgr = InstanceStorageBackupManager(instance_root, instance_id, map_name)
+
+        if candidates:
+            newest = candidates[0]
+            answer = messagebox.askyesnocancel(
+                "Map Changed",
+                f"Instance {instance_id} was last running '{last_map}' but is now configured for '{map_name}'.\n\n"
+                f"A backup of '{map_name}' exists from {newest.timestamp.strftime('%Y-%m-%d %H:%M:%S')} "
+                f"({newest.size_bytes / (1024 * 1024):.2f} MB).\n\n"
+                "Yes = restore that map data\n"
+                "No = start fresh (reset map state to zero)\n"
+                "Cancel = abort start",
+            )
+            if answer is True:
+                ok, msg = mgr.restore_backup(newest.path, storage_path)
+                if ok:
+                    return True, f"Instance {instance_id}: restored {map_name} data from {newest.path.parent.name}/{newest.path.name}", newest.path
+                return False, f"Instance {instance_id}: restore failed: {msg}", None
+            if answer is False:
+                ok, msg = mgr.start_fresh(storage_path)
+                return ok, f"Instance {instance_id}: {msg}", None
+            # Cancel
+            return False, f"Instance {instance_id}: start cancelled by user", None
+
+        answer = messagebox.askyesno(
+            "Map Changed",
+            f"Instance {instance_id} was last running '{last_map}' but is now configured for '{map_name}'.\n\n"
+            f"No existing '{map_name}' backup was found.\n\n"
+            "Start fresh (reset map state to zero)?",
+        )
+        if answer:
+            ok, msg = mgr.start_fresh(storage_path)
+            return ok, f"Instance {instance_id}: {msg}", None
+
+        return False, f"Instance {instance_id}: start cancelled by user", None
+
+    def _record_map_storage_state(
+        self,
+        instance: Dict[str, Any],
+        backup_path: Optional[Path] = None,
+    ) -> None:
+        """Persist which map was just started for map-swap detection."""
+        instance_id = int(instance.get("id", {}).get() or 1)
+        map_name = instance.get("map", {}).get() or ""
+        root_folder = instance.get("root_folder", {}).get() or ""
+        root_folder = self._sanitize_instance_root(root_folder, instance_id)
+        dayz_path = self.dayz_path_var.get().strip()
+        instance_root = Path(root_folder) if root_folder else Path(dayz_path)
+        if not instance_root.exists():
+            return
+        tracker = InstanceMapStorageTracker(instance_root)
+        tracker.record_run(map_name, backup_path)
+
+    def _run_instance_preflight(
+        self,
+        instance: Dict[str, Any],
+        allow_repair: bool = True,
+    ) -> Tuple[bool, str]:
+        """Run filesystem/database preflight checks before starting.
+
+        Returns (ok, message). Errors are shown to the user and logged.
+        """
+        instance_id = int(instance.get("id", {}).get() or 1)
+        map_name = instance.get("map", {}).get() or ""
+        root_folder = instance.get("root_folder", {}).get() or ""
+        root_folder = self._sanitize_instance_root(root_folder, instance_id)
+        dayz_path = self.dayz_path_var.get().strip()
+        instance_root = Path(root_folder) if root_folder else Path(dayz_path)
+
+        profile_path = instance.get("profile", {}).get() or "profiles"
+        profile_dir = Path(profile_path)
+        if not profile_dir.is_absolute():
+            profile_dir = instance_root / profile_dir
+
+        config_filename = instance.get("config_file", {}).get() or f"serverDZ_{instance_id}.cfg"
+
+        checker = InstancePreflightChecker(
+            instance_root=instance_root,
+            instance_id=instance_id,
+            map_name=map_name,
+            config_filename=config_filename,
+            profile_dir=profile_dir,
+        )
+        result = checker.run()
+
+        if result.has_warnings:
+            for issue in result.warnings:
+                self.log_text.insert(
+                    tk.END,
+                    f"[{self._get_timestamp()}] PREFLIGHT WARN {instance_id}: {issue.message}\n",
+                )
+
+        if result.has_errors:
+            error_lines = [f"Instance {instance_id} preflight failed:"]
+            for issue in result.errors:
+                line = f"- [{issue.rule}] {issue.message}"
+                if issue.remediation:
+                    line += f"\n  Fix: {issue.remediation}"
+                error_lines.append(line)
+                self.log_text.insert(
+                    tk.END,
+                    f"[{self._get_timestamp()}] PREFLIGHT ERROR {instance_id}: {issue.message}\n",
+                )
+
+            if allow_repair:
+                repair_text = "\n\n".join(error_lines) + (
+                    "\n\nAttempt automatic repair (fix permissions/remove immutable flags)?"
+                )
+                if messagebox.askyesno("Preflight Check Failed", repair_text):
+                    repair = InstancePreflightRepair(checker)
+                    result = repair.repair()
+                    self.log_text.insert(
+                        tk.END,
+                        f"[{self._get_timestamp()}] PREFLIGHT {instance_id}: automatic repair attempted\n",
+                    )
+                    if result.has_errors:
+                        for issue in result.errors:
+                            self.log_text.insert(
+                                tk.END,
+                                f"[{self._get_timestamp()}] PREFLIGHT ERROR {instance_id}: {issue.message}\n",
+                            )
+                        return False, f"Instance {instance_id}: automatic repair could not fix all issues."
+                    return True, f"Instance {instance_id}: preflight issues repaired and checks passed."
+
+            messagebox.showerror(
+                "Preflight Check Failed",
+                "\n\n".join(error_lines),
+            )
+            return False, f"Instance {instance_id}: preflight checks failed. See log for details."
+
+        return True, f"Instance {instance_id}: preflight checks passed."
+
+    def _resolve_mod_source_for_manifest(self, mod_token: str) -> Optional[Path]:
+        """Return the real mod folder for manifest fingerprinting.
+
+        This avoids fingerprinting the instance-local wrapper directory, which
+        changes on every deploy.
+        """
+        workshop_dir = self._get_workshop_directory() or ""
+        return _resolve_mod_source(
+            mod_token,
+            workshop_dir=Path(workshop_dir) if workshop_dir else None,
+            local_mod_dirs=[Path(workshop_dir)] if workshop_dir else [],
+        )
+
+    def _apply_per_instance_config(
+        self,
+        instance_root: Path,
+        workshop_dir: Optional[str] = "",
+        mission_dir: Optional[Path] = None,
+    ) -> None:
+        """Apply per-instance spawn loadout and mod-settings overrides.
+
+        Called during instance preparation so each server instance gets the
+        spawnables and mod settings configured for it in the GUI.
+        """
+        from dayzconfigmaster.config.per_instance_config import PerInstanceConfigManager
+        from dayzconfigmaster.mods.integration import ModIntegrationManager
+
+        manager = PerInstanceConfigManager(instance_root)
+        if mission_dir is None:
+            mission_dir = ModIntegrationManager(instance_root)._find_mission_dir()
+        workshop_path = Path(workshop_dir) if workshop_dir else None
+
+        if mission_dir is not None:
+            self.log_text.insert(
+                tk.END,
+                f"[{self._get_timestamp()}] Applying spawn loadout to "
+                f"{mission_dir.name}...\n",
+            )
+            self.log_text.update_idletasks()
+            ok, messages = manager.apply_spawn_loadout(mission_dir, workshop_path)
+            for msg in messages:
+                self.log_text.insert(
+                    tk.END,
+                    f"[{self._get_timestamp()}] Spawn loadout: {msg}\n",
+                )
+            if not ok:
+                raise RuntimeError("One or more spawn loadout entries failed. See log.")
+
+        ok, messages = manager.apply_mod_settings_overrides(instance_root, mission_dir)
+        for msg in messages:
+            self.log_text.insert(
+                tk.END,
+                f"[{self._get_timestamp()}] Mod settings: {msg}\n",
+            )
+        if not ok:
+            raise RuntimeError("One or more mod-settings overrides failed. See log.")
+
     def _apply_mod_integration(self):
         """Apply selected mod integrations to the active instance."""
         instance_root = self._get_mod_integration_instance_root()
@@ -4900,17 +5925,23 @@ Requirements:
         for widget in self._instance_mod_frame.winfo_children():
             widget.destroy()
 
+        self._instance_mod_preset_combos: List[ttk.Combobox] = []
+        preset_names = self._get_mod_preset_manager().list_presets()
+
         for i, instance in enumerate(self._instance_vars):
             frame = ttk.LabelFrame(self._instance_mod_frame, text=f"Instance {i+1} Mods", padding=8)
             frame.pack(fill=tk.X, padx=5, pady=(0, 8))
+            frame.columnconfigure(1, weight=1)
 
             mod_var = instance.get("mod_paths")
             if mod_var is None:
                 mod_var = tk.StringVar()
                 instance["mod_paths"] = mod_var
 
+            # Row 0: mod entry + add mod button
+            ttk.Label(frame, text="Mods:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
             entry = ttk.Entry(frame, width=80, textvariable=mod_var)
-            entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+            entry.grid(row=0, column=1, sticky=tk.EW, padx=(0, 5))
 
             def browse_mods(var=mod_var):
                 path = filedialog.askdirectory(title="Select Mods Directory")
@@ -4922,7 +5953,87 @@ Requirements:
                     else:
                         var.set(new_mod)
 
-            ttk.Button(frame, text="Add Mod", command=browse_mods).pack(side=tk.LEFT)
+            ttk.Button(frame, text="Add Mod", command=browse_mods).grid(row=0, column=2, sticky=tk.W)
+
+            # Row 1: preset controls
+            ttk.Label(frame, text="Preset:").grid(row=1, column=0, sticky=tk.W, padx=(0, 5), pady=(5, 0))
+            preset_var = tk.StringVar(value="")
+            preset_combo = ttk.Combobox(
+                frame,
+                values=preset_names,
+                textvariable=preset_var,
+                state="readonly",
+                width=30,
+            )
+            preset_combo.grid(row=1, column=1, sticky=tk.W, padx=(0, 5), pady=(5, 0))
+
+            def apply_preset(var=mod_var, combo=preset_combo):
+                name = combo.get()
+                if not name:
+                    return
+                mod_string = self._get_mod_preset_manager().apply_preset_to_string(name)
+                if mod_string is not None:
+                    var.set(mod_string)
+                    self.log_text.insert(
+                        tk.END,
+                        f"[{self._get_timestamp()}] Applied mod preset '{name}'\n",
+                    )
+
+            def save_as_preset(var=mod_var, combo=preset_combo):
+                current = var.get().strip()
+                if not current:
+                    messagebox.showwarning("No Mods", "There are no mods to save in a preset.")
+                    return
+                name = tk.simpledialog.askstring(
+                    "Save Mod Preset",
+                    "Enter a name for this mod preset:",
+                )
+                if not name:
+                    return
+                ok, msg = self._get_mod_preset_manager().save_preset_from_string(
+                    name, current
+                )
+                if ok:
+                    self._refresh_instance_mod_preset_combos()
+                    combo.set(name)
+                self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {msg}\n")
+                if not ok:
+                    messagebox.showerror("Preset Error", msg)
+
+            def delete_preset(combo=preset_combo):
+                name = combo.get()
+                if not name:
+                    return
+                if not messagebox.askyesno(
+                    "Delete Preset",
+                    f"Delete mod preset '{name}'?",
+                ):
+                    return
+                ok, msg = self._get_mod_preset_manager().delete_preset(name)
+                if ok:
+                    combo.set("")
+                    self._refresh_instance_mod_preset_combos()
+                self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {msg}\n")
+
+            ttk.Button(frame, text="Apply", command=apply_preset).grid(
+                row=1, column=2, sticky=tk.W, padx=(0, 2), pady=(5, 0)
+            )
+            ttk.Button(frame, text="Save As", command=save_as_preset).grid(
+                row=1, column=3, sticky=tk.W, padx=(0, 2), pady=(5, 0)
+            )
+            ttk.Button(frame, text="Delete", command=delete_preset).grid(
+                row=1, column=4, sticky=tk.W, pady=(5, 0)
+            )
+
+            # Track the combo so rebuilds can refresh values.
+            self._instance_mod_preset_combos.append(preset_combo)
+
+    def _refresh_instance_mod_preset_combos(self):
+        """Refresh every preset dropdown after add/delete."""
+        preset_names = self._get_mod_preset_manager().list_presets()
+        for combo in getattr(self, "_instance_mod_preset_combos", []):
+            combo.config(values=preset_names)
+        self._refresh_mods_tab_preset_combo()
 
     def _create_single_server_controls(self, parent: ttk.Frame):
         """Create controls for the Single Server sub-tab."""
@@ -5248,11 +6359,15 @@ Requirements:
             instance: Instance variable dict from the UI.
             cfg_content: Optional pre-generated serverDZ.cfg content. If omitted,
                 the content is built from the multi-instance configuration.
+            force_redeploy: If True, ignore the deployment manifest and run the
+                full deployment pipeline.
 
         Returns:
             (instance_root_path, config_filename, deployed_mods_str, profile_dir) or
             (None, error_message, None, None).
         """
+        from dayzconfigmaster.mods.integration import ModIntegrationManager
+
         instance_id = int(instance["id"].get() or 1)
         config_filename = instance["config_file"].get() or f"serverDZ_{instance_id}.cfg"
 
@@ -5313,47 +6428,106 @@ Requirements:
         except Exception as exc:
             return None, f"Failed to sanitize ban/whitelist files: {exc}"
 
-        # Deploy mod wrappers and copy .bikey signature keys into the instance.
+        # Build current deployment manifest inputs so we can skip the slow
+        # copy/symlink/integration steps when nothing has changed.
         mods_str = self._get_instance_mods(instance)
-
-        try:
-            deployed_mods_str = self._deploy_mods_and_keys(instance_root, mods_str)
-        except Exception as exc:
-            return None, f"Failed to deploy mods/keys: {exc}"
-
-        # Ensure the mission folder required by serverDZ.cfg is available.
         map_display_name = instance.get("map", {}).get() or ""
         workshop_dir = self._get_workshop_directory() or ""
         mission_source = instance.get("mission_path")
         mission_source_str = mission_source.get() if mission_source is not None else ""
         mission_source_path = Path(mission_source_str) if mission_source_str.strip() else None
-        try:
-            mission_msg = self._deploy_mission_folder(
-                instance_root=instance_root,
-                dayz_path=Path(dayz_path),
-                map_display_name=map_display_name,
-                workshop_dir=workshop_dir,
-                mission_source_path=mission_source_path,
-            )
+
+        if cfg_content is None or not cfg_content:
+            all_configs = self._build_instance_cfgs_content()
+            cfg_content = all_configs.get(config_filename, "")
+        cfg_content = cfg_content or ""
+
+        from dayzconfigmaster.config.per_instance_config import PerInstanceConfigManager
+
+        per_instance_mgr = PerInstanceConfigManager(instance_root)
+        spawn_loadout = per_instance_mgr.load_spawn_loadout()
+        mod_settings_overrides = per_instance_mgr.load_mod_settings_overrides()
+
+        # Mod integration state affects which XML fragments are merged.
+        mod_integration_state = ModIntegrationManager(instance_root).load_state()
+
+        manifest_mgr = DeploymentManifestManager(instance_root)
+        current_manifest = manifest_mgr.compute(
+            instance=instance,
+            dayz_server_path=Path(dayz_path),
+            instance_root=instance_root,
+            mods_str=mods_str,
+            mission_source_path=mission_source_path,
+            spawn_loadout=spawn_loadout.to_dict(),
+            mod_settings_overrides={k: v.to_dict() for k, v in mod_settings_overrides.items()},
+            mod_integration_state=mod_integration_state,
+            cfg_content=cfg_content,
+            resolve_mod_source=self._resolve_mod_source_for_manifest,
+        )
+
+        can_skip, skip_reason = compute_quick_skip_status(instance_root, current_manifest)
+        if can_skip and not force_redeploy:
             self.log_text.insert(
                 tk.END,
-                f"[{self._get_timestamp()}] Instance {instance_id} mission: {mission_msg}\n",
+                f"[{self._get_timestamp()}] Instance {instance_id}: deployment manifest matches ({skip_reason}); skipping slow deployment steps.\n",
             )
-            if mission_msg.startswith("ERROR"):
-                return None, mission_msg
-        except Exception as exc:
-            return None, f"Failed to deploy mission folder: {exc}"
+            deployed_mods_str = mods_str
+        else:
+            self.log_text.insert(
+                tk.END,
+                f"[{self._get_timestamp()}] Instance {instance_id}: full deployment required ({skip_reason}).\n",
+            )
+            try:
+                deployed_mods_str = self._deploy_mods_and_keys(instance_root, mods_str)
+            except Exception as exc:
+                return None, f"Failed to deploy mods/keys: {exc}"
 
-        # Apply mod XML integration into the mission files. This registers
-        # mod classnames (vehicles, items, spawn points) so the content
-        # actually appears in-game, not just loads on the client.
-        try:
-            self._apply_mod_integration_to_instance(instance_root)
-        except Exception as exc:
-            return None, f"Failed to apply mod integration: {exc}"
+            try:
+                mission_msg, mission_target = self._deploy_mission_folder(
+                    instance_root=instance_root,
+                    dayz_path=Path(dayz_path),
+                    map_display_name=map_display_name,
+                    workshop_dir=workshop_dir,
+                    mission_source_path=mission_source_path,
+                )
+                self.log_text.insert(
+                    tk.END,
+                    f"[{self._get_timestamp()}] Instance {instance_id} mission: {mission_msg}\n",
+                )
+                if mission_msg.startswith("ERROR"):
+                    return None, mission_msg
+                if mission_target:
+                    lifetime_msg = self._normalize_aircraft_lifetimes(
+                        instance_root, mission_target
+                    )
+                    self.log_text.insert(
+                        tk.END,
+                        f"[{self._get_timestamp()}] Instance {instance_id} "
+                        f"aircraft lifetime: {lifetime_msg}\n",
+                    )
+            except Exception as exc:
+                return None, f"Failed to deploy mission folder: {exc}"
+
+            try:
+                self._apply_mod_integration_to_instance(instance_root)
+            except Exception as exc:
+                return None, f"Failed to apply mod integration: {exc}"
+
+            try:
+                mission_dir = ModIntegrationManager(instance_root)._find_mission_dir()
+                self._apply_per_instance_config(
+                    instance_root,
+                    workshop_dir=workshop_dir,
+                    mission_dir=mission_dir,
+                )
+            except Exception as exc:
+                return None, f"Failed to apply per-instance configuration: {exc}"
+
+            # Save the manifest only after a successful full deployment.
+            manifest_mgr.save(current_manifest)
 
         # Generate the config content for this instance.
-        if cfg_content is None:
+        if cfg_content is None or not cfg_content:
             all_configs = self._build_instance_cfgs_content()
             cfg_content = all_configs.get(config_filename, "")
             if not cfg_content:
@@ -5584,7 +6758,7 @@ Requirements:
         map_display_name: str,
         workshop_dir: str,
         mission_source_path: Optional[Path] = None,
-    ) -> str:
+    ) -> Tuple[str, str]:
         """Ensure the mission folder required by serverDZ.cfg exists.
 
         Resolves the real world name, then copies the base-game, workshop, or
@@ -5602,14 +6776,15 @@ Requirements:
                 already exists in the instance.
 
         Returns:
-            A short human-readable description of what was deployed.
+            A tuple of (short human-readable description of what was deployed,
+            mission target folder name such as ``dayzOffline.chernarusplus``).
         """
         mpmissions_dir = instance_root / "mpmissions"
         mpmissions_dir.mkdir(parents=True, exist_ok=True)
 
         world_name = self._resolve_world_name(map_display_name, workshop_dir)
         if not world_name:
-            return "No map selected; skipping mission deployment."
+            return "No map selected; skipping mission deployment.", ""
 
         # The user may have supplied a full template such as dayzOffline.alteria.
         if world_name.lower().startswith("dayzoffline.") or world_name.lower().startswith("dayz."):
@@ -5627,7 +6802,8 @@ Requirements:
         if target_link.exists() and target_link.is_dir() and not target_link.is_symlink():
             return (
                 f"Preserved existing mission folder {target_name}. "
-                "Delete it manually if you want to redeploy from a source."
+                "Delete it manually if you want to redeploy from a source.",
+                target_name,
             )
 
         # Remove a stale symlink/broken link before deploying a fresh one.
@@ -5635,21 +6811,21 @@ Requirements:
             try:
                 target_link.unlink()
             except Exception as exc:
-                return f"Could not remove stale mission symlink {target_link}: {exc}"
+                return f"Could not remove stale mission symlink {target_link}: {exc}", ""
 
         # If the user provided a custom mission source, copy it.
         if mission_source_path is not None and mission_source_path.exists():
             try:
                 shutil.copytree(mission_source_path, target_link, symlinks=True)
-                return f"Copied mission {target_name} from custom source {mission_source_path}."
+                return f"Copied mission {target_name} from custom source {mission_source_path}.", target_name
             except Exception as exc:
-                return f"Could not copy custom mission source {mission_source_path}: {exc}"
+                return f"Could not copy custom mission source {mission_source_path}: {exc}", ""
 
         # Prefer the base game's mission folder for stock maps.
         base_mission = dayz_path / "mpmissions" / target_name
         if base_mission.exists():
             shutil.copytree(base_mission, target_link, symlinks=True)
-            return f"Copied stock mission {target_name}."
+            return f"Copied stock mission {target_name}.", target_name
 
         # Search the workshop map folder for a matching mission folder.
         workshop_folder = self._find_workshop_map_folder(map_display_name, workshop_dir)
@@ -5679,7 +6855,7 @@ Requirements:
 
             if candidates:
                 shutil.copytree(candidates[0], target_link, symlinks=True)
-                return f"Copied workshop mission {target_name} from {workshop_folder.name}."
+                return f"Copied workshop mission {target_name} from {workshop_folder.name}.", target_name
 
         # Terrain-only workshop maps often do not include a mission folder.
         # Fall back to the base ChernarusPlus mission as a template so the
@@ -5690,16 +6866,73 @@ Requirements:
             return (
                 f"WARNING: {target_name} mission folder not found in workshop item "
                 f"or base game. Copied ChernarusPlus mission as a fallback template. "
-                f"You may need to obtain the correct mission files for {map_display_name}."
+                f"You may need to obtain the correct mission files for {map_display_name}.",
+                target_name,
             )
 
         return (
             f"ERROR: Could not find mission files for {target_name}. "
-            f"Install the map mod or provide a dayzOffline.{world_token} mission folder."
+            f"Install the map mod or provide a dayzOffline.{world_token} mission folder.",
+            "",
         )
 
-    def _start_single_instance(self, instance: Dict[str, Any], terminal: bool = False):
+    def _normalize_aircraft_lifetimes(
+        self,
+        instance_root: Path,
+        target_name: str,
+    ) -> str:
+        """Ensure aircraft and helicopter types have the max lifetime.
+
+        This is run after the mission folder is deployed so admin-placed
+        aircraft do not despawn because of a short ``<lifetime>`` value.
+
+        Args:
+            instance_root: Root directory of the instance.
+            target_name: Mission folder name (e.g. ``dayzOffline.chernarusplus``).
+
+        Returns:
+            A short human-readable message describing what was done.
+        """
+        types_path = instance_root / "mpmissions" / target_name / "db" / "types.xml"
+        if not types_path.exists():
+            return f"No types.xml at {types_path}; skipped aircraft lifetime check."
+
+        try:
+            from dayzconfigmaster.economy.aircraft_lifetime import ensure_aircraft_lifetime
+            result = ensure_aircraft_lifetime(types_path)
+        except Exception as exc:
+            return f"Aircraft lifetime normalization failed: {exc}"
+
+        if not result.success:
+            return f"Aircraft lifetime normalization failed: {result.error}"
+        if result.changed_count == 0:
+            return (
+                f"Aircraft lifetime check: {result.skipped_count} "
+                f"type(s) already at max."
+            )
+        msg = (
+            f"Set aircraft/helicopter lifetime to max for "
+            f"{result.changed_count} type(s) in types.xml."
+        )
+        if result.backup_path:
+            msg += f" Backup: {result.backup_path.name}"
+        return msg
+
+    def _start_single_instance(
+        self, instance: Dict[str, Any], terminal: bool = False
+    ):
         """Start a single DayZ server instance from the multi-instance list."""
+        instance_id = instance["id"].get()
+        self._set_busy(f"Starting instance {instance_id}...")
+        try:
+            return self._start_single_instance_impl(instance, terminal)
+        finally:
+            self._clear_busy()
+
+    def _start_single_instance_impl(
+        self, instance: Dict[str, Any], terminal: bool = False
+    ):
+        """Internal implementation: start a single DayZ server instance."""
         valid, error = self._validate_dayz_server_path()
         if not valid:
             messagebox.showerror("Error", error)
@@ -5714,6 +6947,25 @@ Requirements:
             return
 
         dayz_path = self.dayz_path_var.get().strip()
+
+        # Handle map swaps before we back up or deploy.
+        proceed, rollover_msg, _rollover_backup = self._maybe_rollover_storage_for_map_change(instance)
+        self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {rollover_msg}\n")
+        if not proceed:
+            return
+
+        # Ensure a storage_1 backup exists before we touch the instance.
+        backup_ok, backup_msg, backup_path = self._ensure_instance_storage_backup(instance)
+        self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {backup_msg}\n")
+        if not backup_ok:
+            messagebox.showerror("Backup Error", backup_msg)
+            return
+
+        # Run filesystem/database preflight checks before deployment.
+        preflight_ok, preflight_msg = self._run_instance_preflight(instance)
+        self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {preflight_msg}\n")
+        if not preflight_ok:
+            return
 
         # Ensure config and instance files are written in-place before starting.
         instance_root, config_filename, deployed_mods_str, profile_dir = self._prepare_instance_files(instance)
@@ -5775,6 +7027,9 @@ Requirements:
                     f"[{self._get_timestamp()}] Instance {instance_id} started on port {port} using {instance_exe.name}\n"
                 )
 
+                # Remember this map run for future map-swap handling.
+                self._record_map_storage_state(instance, backup_path)
+
                 # Start a per-instance memory watchdog.
                 try:
                     memory_limit_gb = float(self.memory_kill_limit_var.get())
@@ -5822,6 +7077,12 @@ Requirements:
     def _stop_single_instance(self, instance: Dict[str, Any]):
         """Stop a single DayZ server instance."""
         instance_id = instance['id'].get()
+        with self._busy_context(f"Stopping instance {instance_id}..."):
+            self._stop_single_instance_impl(instance)
+
+    def _stop_single_instance_impl(self, instance: Dict[str, Any]):
+        """Internal implementation: stop a single instance."""
+        instance_id = instance['id'].get()
         try:
             if hasattr(self, 'process_controller') and self.process_controller:
                 process_name = f"server_instance_{instance_id}"
@@ -5839,6 +7100,9 @@ Requirements:
                         tk.END,
                         f"[{self._get_timestamp()}] Instance {instance_id} stopped\n"
                     )
+                    # Back up storage_1 while the server is not writing to it.
+                    backup_ok, backup_msg, _ = self._ensure_instance_storage_backup(instance, force=True)
+                    self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {backup_msg}\n")
                 else:
                     self.status_var.set(f"Failed to stop instance {instance_id}: {msg}")
                     messagebox.showerror("Server Error", msg)
@@ -5854,6 +7118,14 @@ Requirements:
 
     def _start_multi_instance_servers(self):
         """Start all enabled DayZ server instances."""
+        self._set_busy("Starting multi-instance servers...")
+        try:
+            return self._start_multi_instance_servers_impl()
+        finally:
+            self._clear_busy()
+
+    def _start_multi_instance_servers_impl(self):
+        """Internal implementation: start all enabled instances."""
         valid, error = self._validate_dayz_server_path()
         if not valid:
             messagebox.showerror("Error", error)
@@ -5877,6 +7149,28 @@ Requirements:
                         tk.END,
                         f"[{self._get_timestamp()}] Instance {instance_id} already running, skipping\n"
                     )
+                    continue
+
+                # Handle map swaps before we back up or deploy.
+                proceed, rollover_msg, _ = self._maybe_rollover_storage_for_map_change(instance)
+                self.log_text.insert(tk.END, f"[{self._get_timestamp()}] Instance {instance_id}: {rollover_msg}\n")
+                if not proceed:
+                    continue
+
+                # Ensure a storage_1 backup exists before we touch the instance.
+                backup_ok, backup_msg, backup_path = self._ensure_instance_storage_backup(instance)
+                self.log_text.insert(tk.END, f"[{self._get_timestamp()}] Instance {instance_id}: {backup_msg}\n")
+                if not backup_ok:
+                    self.log_text.insert(
+                        tk.END,
+                        f"[{self._get_timestamp()}] ERROR Instance {instance_id}: {backup_msg}\n"
+                    )
+                    continue
+
+                # Run filesystem/database preflight checks before deployment.
+                preflight_ok, preflight_msg = self._run_instance_preflight(instance)
+                self.log_text.insert(tk.END, f"[{self._get_timestamp()}] Instance {instance_id}: {preflight_msg}\n")
+                if not preflight_ok:
                     continue
 
                 # Ensure config and files are written in-place before starting.
@@ -5952,6 +7246,9 @@ Requirements:
                         f"[{self._get_timestamp()}] Instance {instance_id} started on port {port}\n"
                     )
 
+                    # Remember this map run for future map-swap handling.
+                    self._record_map_storage_state(instance, backup_path)
+
                     # Start a per-instance memory watchdog.
                     try:
                         memory_limit_gb = float(self.memory_kill_limit_var.get())
@@ -6004,6 +7301,11 @@ Requirements:
 
     def _stop_multi_instance_servers(self):
         """Stop all running DayZ server instances."""
+        with self._busy_context("Stopping multi-instance servers..."):
+            self._stop_multi_instance_servers_impl()
+
+    def _stop_multi_instance_servers_impl(self):
+        """Internal implementation: stop all running instances."""
         try:
             if hasattr(self, 'process_controller') and self.process_controller:
                 # Stop every tracked server instance process, not just the
@@ -6012,6 +7314,15 @@ Requirements:
                     if process_name == "client":
                         continue
                     self.process_controller.stop_process_by_name(process_name)
+
+                # Back up storage_1 for each configured instance while the
+                # server is not writing to it.
+                for instance in getattr(self, "_instance_vars", []):
+                    backup_ok, backup_msg, _ = self._ensure_instance_storage_backup(instance, force=True)
+                    self.log_text.insert(
+                        tk.END,
+                        f"[{self._get_timestamp()}] Instance {instance['id'].get()}: {backup_msg}\n",
+                    )
 
                 self._running_instance_ids.clear()
                 self._update_instance_button_states()
@@ -6031,7 +7342,15 @@ Requirements:
             messagebox.showerror("Server Error", error_msg)
     
     def _start_server(self):
-        """Start the DayZ server using ProcessController"""
+        """Start the DayZ server using ProcessController."""
+        self._set_busy("Starting server...")
+        try:
+            return self._start_server_impl()
+        finally:
+            self._clear_busy()
+
+    def _start_server_impl(self):
+        """Internal implementation: start the DayZ server."""
         valid, error = self._validate_dayz_server_path()
         if not valid:
             messagebox.showerror("Error", error)
@@ -6059,6 +7378,25 @@ Requirements:
             "mod_paths": self.mod_paths_var,
             "map": self.map_name_var,
         }
+
+        # Handle map swaps and ensure a storage_1 backup exists.
+        proceed, rollover_msg, _ = self._maybe_rollover_storage_for_map_change(pseudo_instance)
+        self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {rollover_msg}\n")
+        if not proceed:
+            return
+
+        backup_ok, backup_msg, backup_path = self._ensure_instance_storage_backup(pseudo_instance)
+        self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {backup_msg}\n")
+        if not backup_ok:
+            messagebox.showerror("Backup Error", backup_msg)
+            return
+
+        # Run filesystem/database preflight checks before deployment.
+        preflight_ok, preflight_msg = self._run_instance_preflight(pseudo_instance)
+        self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {preflight_msg}\n")
+        if not preflight_ok:
+            return
+
         instance_root, config_path, deployed_mods_str, profile_dir = self._prepare_instance_files(
             pseudo_instance, cfg_content=cfg_content
         )
@@ -6135,6 +7473,9 @@ Requirements:
                 self.status_var.set(f"Server started: {msg}")
                 self.log_text.insert(tk.END, f"[{self._get_timestamp()}] Server started: {msg} using {instance_exe.name}\n")
 
+                # Remember this map run for future map-swap handling.
+                self._record_map_storage_state(pseudo_instance, backup_path)
+
                 # Start the memory watchdog. It runs in a background thread so
                 # it can still kill the server even if the GUI freezes.
                 try:
@@ -6204,7 +7545,12 @@ Requirements:
             messagebox.showerror("Server Error", error_msg)
     
     def _stop_server(self):
-        """Stop the DayZ server"""
+        """Stop the DayZ server."""
+        with self._busy_context("Stopping server..."):
+            self._stop_server_impl()
+
+    def _stop_server_impl(self):
+        """Internal implementation: stop the DayZ server."""
         try:
             if hasattr(self, 'process_controller') and self.process_controller:
                 success, msg = self.process_controller.stop_server()
@@ -6217,6 +7563,18 @@ Requirements:
                     self.start_server_btn.config(state=tk.NORMAL)
                     self.stop_server_btn.config(state=tk.DISABLED)
                     self.restart_server_btn.config(state=tk.DISABLED)
+
+                    # Back up storage_1 for the single-server pseudo-instance.
+                    pseudo_instance = {
+                        "id": tk.StringVar(value="0"),
+                        "config_file": tk.StringVar(value=self.config_path_var.get() or "serverDZ.cfg"),
+                        "root_folder": tk.StringVar(value=""),
+                        "profile": tk.StringVar(value=""),
+                        "mod_paths": self.mod_paths_var,
+                        "map": self.map_name_var,
+                    }
+                    backup_ok, backup_msg, _ = self._ensure_instance_storage_backup(pseudo_instance, force=True)
+                    self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {backup_msg}\n")
                 else:
                     self.status_var.set(f"Failed to stop server: {msg}")
                     messagebox.showerror("Server Error", msg)
@@ -6231,7 +7589,12 @@ Requirements:
             messagebox.showerror("Server Error", error_msg)
     
     def _restart_server(self):
-        """Restart the DayZ server"""
+        """Restart the DayZ server."""
+        with self._busy_context("Restarting server..."):
+            self._restart_server_impl()
+
+    def _restart_server_impl(self):
+        """Internal implementation: restart the DayZ server."""
         try:
             if hasattr(self, 'process_controller') and self.process_controller:
                 mode = self.mode_var.get()
@@ -8413,6 +9776,15 @@ To use these features, configure your Steam Web API key in Preferences (Steam Wo
         
         return str(settings.get("projects_root", projects_root))
 
+    def _get_mod_preset_manager(self) -> ModPresetManager:
+        """Return the shared mod preset manager for the current projects root."""
+        projects_root = Path(self._get_projects_root())
+        if not hasattr(self, "_mod_preset_manager") or self._mod_preset_manager is None:
+            self._mod_preset_manager = ModPresetManager(projects_root)
+        # Refresh from disk in case another process edited presets.
+        self._mod_preset_manager._load()
+        return self._mod_preset_manager
+
     def _get_default_instance_root(self, instance_num: int) -> str:
         """Return a writable default root folder for an instance."""
         return str(Path(self._get_projects_root()) / "instances" / f"server{instance_num}")
@@ -8535,16 +9907,58 @@ To use these features, configure your Steam Web API key in Preferences (Steam Wo
                 continue
             if not is_debug and normal_copied:
                 continue
-            dest_name = self._get_instance_binary_name(instance_id, mode="debug" if is_debug else "normal")
+            dest_name = self._get_instance_binary_name(
+                instance_id, mode="debug" if is_debug else "normal"
+            )
             dest = instance_dir / dest_name
+
+            # Avoid copying over a running binary. If the destination already
+            # exists and matches the source, reuse it; if it is busy (still
+            # executing), keep the existing copy so startup can proceed.
+            if dest.exists() and dest.is_file():
+                try:
+                    src_stat = src.stat()
+                    dest_stat = dest.stat()
+                    if (
+                        src_stat.st_size == dest_stat.st_size
+                        and int(src_stat.st_mtime) == int(dest_stat.st_mtime)
+                    ):
+                        if is_debug:
+                            debug_copied = True
+                        else:
+                            normal_copied = True
+                        continue
+                except OSError:
+                    pass
+
             try:
                 shutil.copy2(src, dest)
                 if is_debug:
                     debug_copied = True
                 else:
                     normal_copied = True
+            except OSError as exc:
+                err_text = str(exc).lower()
+                if "text file busy" in err_text and dest.exists():
+                    # The old binary is still running. Reuse it so the start
+                    # can continue; the orphaned-process kill later will take
+                    # care of the stale process before launch.
+                    print(
+                        f"Warning: {dest_name} is busy (old process still running); "
+                        f"reusing existing instance binary."
+                    )
+                    if is_debug:
+                        debug_copied = True
+                    else:
+                        normal_copied = True
+                else:
+                    print(
+                        f"Warning: could not copy instance binary {dest_name}: {exc}"
+                    )
             except Exception as exc:
-                print(f"Warning: could not copy instance binary {dest_name}: {exc}")
+                print(
+                    f"Warning: could not copy instance binary {dest_name}: {exc}"
+                )
 
         # Files/directories that must be present for the server to boot.
         required_names = {

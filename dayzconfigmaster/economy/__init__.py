@@ -33,10 +33,15 @@ from .events_xml import EventsXml
 from .globals_xml import GlobalsXml
 from .environment_xml import EnvironmentXml
 from .eventgroups_xml import EventGroupsXml, EventGroup
+from .aircraft_lifetime import (
+    ensure_aircraft_lifetime,
+    AircraftLifetimeResult,
+    MAX_VEHICLE_LIFETIME,
+)
 
 __all__ = [
     'CeNum',
-    'CeXml', 
+    'CeXml',
     'XNode', 'XDoc', 'XElement', 'XAttribute',
     'CeCoreXml',
     'TypesXml', 'TypeEntry', 'Category', 'Usage', 'Value',
@@ -44,5 +49,8 @@ __all__ = [
     'GlobalsXml',
     'EnvironmentXml',
     'EventGroupsXml',
-    'EventGroup'
+    'EventGroup',
+    'ensure_aircraft_lifetime',
+    'AircraftLifetimeResult',
+    'MAX_VEHICLE_LIFETIME',
 ]
