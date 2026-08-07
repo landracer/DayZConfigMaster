@@ -136,6 +136,7 @@ class PerInstanceConfigManager:
         self.config_dir.mkdir(parents=True, exist_ok=True)
 
     def load_spawn_loadout(self) -> InstanceSpawnLoadout:
+        """Load the saved spawn loadout, or an empty one if none exists."""
         if not self.spawn_loadout_path.exists():
             return InstanceSpawnLoadout()
         try:
@@ -145,6 +146,7 @@ class PerInstanceConfigManager:
             return InstanceSpawnLoadout()
 
     def save_spawn_loadout(self, loadout: InstanceSpawnLoadout) -> None:
+        """Persist *loadout* to the instance's spawn_loadout.json file."""
         self._ensure_dir()
         loadout.last_updated = datetime.now(timezone.utc).isoformat()
         self.spawn_loadout_path.write_text(
@@ -153,6 +155,7 @@ class PerInstanceConfigManager:
         )
 
     def load_mod_settings_overrides(self) -> Dict[str, ModSettingsOverride]:
+        """Load saved mod-settings overrides keyed by source path."""
         if not self.mod_settings_path.exists():
             return {}
         try:
@@ -167,6 +170,7 @@ class PerInstanceConfigManager:
     def save_mod_settings_overrides(
         self, overrides: Dict[str, ModSettingsOverride]
     ) -> None:
+        """Persist *overrides* to the instance's mod_settings_overrides.json file."""
         self._ensure_dir()
         now = datetime.now(timezone.utc).isoformat()
         for override in overrides.values():

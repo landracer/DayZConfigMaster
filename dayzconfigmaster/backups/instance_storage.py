@@ -29,6 +29,7 @@ class StorageBackupInfo:
 
     @property
     def age(self) -> timedelta:
+        """Return the time elapsed since this backup was created."""
         return datetime.now(timezone.utc) - self.timestamp
 
 

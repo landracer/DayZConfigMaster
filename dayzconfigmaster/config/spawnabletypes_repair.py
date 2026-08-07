@@ -43,6 +43,7 @@ TYPE_PATTERN = re.compile(r'<type name="([^"]+)">(.*?)</type>', re.DOTALL)
 
 @dataclass
 class RepairResult:
+    """Outcome of a cfgspawnabletypes.xml repair pass."""
     success: bool
     target_path: Path
     fixes: List[str] = field(default_factory=list)

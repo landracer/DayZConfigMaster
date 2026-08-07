@@ -1,5 +1,9 @@
 # Mod Settings Interactive Editor - Audit & Fix Plan
 
+> **Canonical document:** This file is the authoritative record of the Mod
+> Settings interactive editor fixes. The widget limit described below is an
+> intentional defense against X11 `BadAlloc` crashes, not a bug to remove.
+
 ## 1. Executive Summary
 
 The "Mod Settings" tab's interactive editor had multiple issues: button placement problems, missing parameters in the parser, duplicate file detection, broken scrolling, and a critical X server crash (BadAlloc) when loading large files on Linux. This document details all fixes applied and remaining work for peer review.

@@ -186,18 +186,76 @@ dzl utils info --json
 
 ```
 DayzConfigMaster/
-├── dayzconfigmaster/    # Core package
-│   ├── config/         # Configuration parsing and validation
-│   ├── gui/            # GUI components and tabs
-│   ├── server/         # Process and instance management
-│   ├── build/          # PBO building and caching
-│   ├── workshop/       # Steam Workshop API integration
-│   ├── cli/            # Command-line interface (dzl command)
-│   ├── git/            # Git management via GitPython
-│   ├── economy/        # Central Economy file parsers
-│   └── utils/          # Utility functions
-├── main.py             # Main GUI application entry point
-├── README.md           # This file
+├── dayzconfigmaster/        # Core package
+│   ├── backups/             # Storage, players.db, and map-state backup tools
+│   ├── banlist/             # Player ban / VPPAdminTools integration
+│   ├── build/               # PBO build cache, preflight rules, build service
+│   ├── cli/                 # Command-line interface (dzl command)
+│   ├── config/              # Configuration parsing, validation, generation
+│   ├── discord/             # Discord bot integration
+│   ├── economy/             # Central Economy XML parsers (types, events, globals, ...)
+│   ├── git/                 # Git repository helpers
+│   ├── gui/                 # Tkinter GUI components, tabs, and app shell
+│   ├── hooks/               # Server lifecycle hooks
+│   ├── integration/         # Server manager integration
+│   ├── logs/                # Log tailing and diagnostics
+│   ├── mcp/                 # Model Context Protocol server
+│   ├── metrics/             # Runtime metrics collection
+│   ├── mods/                # Mod discovery, PBO building, integration
+│   ├── rcon/                # RCon client
+│   ├── scheduler/           # Restart / event scheduling
+│   ├── server/              # Process control, deployment, instance preflight
+│   ├── setup/               # Setup wizard
+│   ├── tools/               # Misc helper tools
+│   ├── update/              # Update manager
+│   ├── utils/               # Utility functions
+│   └── workshop/            # Steam Workshop / SteamCMD integration
+├── main.py                  # GUI application entry point
+├── tests/                   # pytest test suite
+├── wiki/                    # User-facing documentation
+├── references/              # External reference material (not tracked by git)
+├── CHANGELOG.md             # Recent changes
+├── requirements.txt         # Python dependencies
+└── README.md                # This file
+```
+
+## Recently Added Subsystems
+
+- **Instance Preflight** — filesystem and database health checks before server start.
+- **Deployment Manifest** — skip redundant deploy work when nothing has changed.
+- **Per-Instance Config & Backups** — instance-specific overrides plus storage/players.db backup and restore.
+- **Mod Presets** — save, load, and apply named ordered mod lists per instance.
+- **Aircraft/Helicopter Lifetime** — automatically raise low `types.xml` lifetimes so admin-placed aircraft do not despawn.
+
+See [CHANGELOG.md](CHANGELOG.md) for the full list.
+
+## Testing
+
+Run the test suite with pytest:
+
+```bash
+python3 -m pytest tests/ -q
+```
+
+The suite currently covers configuration parsing, economy XML editing, deployment, mod integration, backup/restore, preflight checks, mod presets, and aircraft lifetime normalization.
+
+## Troubleshooting
+
+### Server fails to start with "attempt to write a readonly database"
+Run **Start Server** after the latest deploy. The preflight engine checks `players.db` writability and filesystem attributes, and offers to repair permissions before the server boots.
+
+### Aircraft or helicopters despawn after logout/login
+Use **House Cleaning & Scheduling → Mission XML Maintenance → Fix Aircraft Lifetimes**. This sets `types.xml` `<lifetime>` to 45 days for aircraft/helicopter classes whose lifetime is lower.
+
+### "Text file busy" when replacing the DayZServer binary
+The deploy code now reuses the existing instance binary when the running server process blocks replacement.
+
+### GUI freezes during vehicle lookup
+Workshop class-name scans are cached with an 8-second timeout to prevent the UI from locking up.
+
+## License
+
+This software is governed by the SOVEREIGN INDIVIDUAL LICENSE (see [LICENSE](LICENSE) for details).
 └── requirements.txt    # Python dependencies
 ```
 

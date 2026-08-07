@@ -35,6 +35,7 @@ class PlayerRow:
 
     @property
     def data_size(self) -> int:
+        """Return the byte length of the player's Data blob."""
         return len(self.data)
 
 

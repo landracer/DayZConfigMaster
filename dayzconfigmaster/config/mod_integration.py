@@ -1150,10 +1150,12 @@ class XmlConfigEditor:
         return self._paths.get(name)
 
     def file_exists(self, name: str) -> bool:
+        """Return True if the named supported XML file exists on disk."""
         path = self.path_for(name)
         return bool(path and path.exists())
 
     def read_text(self, name: str) -> Optional[str]:
+        """Read the named supported XML file and return its text, or None."""
         path = self.path_for(name)
         if not path or not path.exists():
             return None
@@ -1356,6 +1358,7 @@ class XmlConfigEditor:
         return self._save("cfgeventspawns.xml", spawns_root)
 
     def is_vehicle_spawning_enabled(self, vehicle_class_name: str) -> Optional[bool]:
+        """Return True/False if *vehicle_class_name* has an event in events.xml."""
         root = self._load("events.xml")
         if root is None:
             return None
@@ -1486,6 +1489,7 @@ class XmlConfigEditor:
         return self._save("types.xml", root)
 
     def type_exists(self, vehicle_class_name: str) -> bool:
+        """Return True if *vehicle_class_name* exists as a <type> in types.xml."""
         root = self._load("types.xml")
         if root is None:
             return False
