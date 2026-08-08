@@ -9,6 +9,8 @@ import re
 import pytest
 from pathlib import Path
 
+from unittest.mock import patch, MagicMock
+
 from dayzconfigmaster.economy.aircraft_lifetime import (
     MAX_VEHICLE_LIFETIME,
     AircraftLifetimeResult,
@@ -16,6 +18,7 @@ from dayzconfigmaster.economy.aircraft_lifetime import (
     AircraftImportResult,
     ensure_aircraft_lifetime,
     ensure_aircraft_types_in_db,
+    ensure_rffsheli_types_in_db,
     import_missing_aircraft_classes_to_db,
     discover_aircraft_classes_from_script_logs,
 )
@@ -293,22 +296,93 @@ def test_import_missing_aircraft_classes_from_logs(tmp_path: Path):
     result = import_missing_aircraft_classes_to_db(mission_dir, profiles)
 
     assert result.success
-    assert result.imported_count == 3
-    assert "RFFSHeli_UH1H_Heli" in result.imported
+    # The script-only _Heli class is skipped; the base CfgVehicles class and
+    # the LM class are imported.
+    assert result.imported_count == 2
+    assert "RFFSHeli_UH1H_Heli" not in result.imported
     assert "RFFSHeli_UH1H" in result.imported
     assert "LM_MH6" in result.imported
 
     db_content = db_types.read_text(encoding="utf-8")
-    assert '<type name="RFFSHeli_UH1H_Heli">' in db_content
+    assert '<type name="RFFSHeli_UH1H_Heli">' not in db_content
     assert '<type name="RFFSHeli_UH1H">' in db_content
     assert '<type name="LM_MH6">' in db_content
-    assert re.search(
-        rf'<type name="RFFSHeli_UH1H_Heli">.*?<lifetime>\s*{MAX_VEHICLE_LIFETIME}\s*</lifetime>',
-        db_content,
-        re.DOTALL,
-    )
     assert re.search(
         rf'<type name="RFFSHeli_UH1H">.*?<lifetime>\s*{MAX_VEHICLE_LIFETIME}\s*</lifetime>',
         db_content,
         re.DOTALL,
     )
+
+
+def test_ensure_rffsheli_types_in_db(tmp_path: Path):
+    """Official RFFSHeli types.xml entries are merged into db/types.xml."""
+    mission_dir = tmp_path / "mpmissions" / "dayzOffline.enoch"
+    mission_dir.mkdir(parents=True)
+    db_dir = mission_dir / "db"
+    db_dir.mkdir()
+
+    db_types = db_dir / "types.xml"
+    db_types.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n<types>\n'
+        '    <type name="RFFSHeli_UH1H">\n'
+        '        <nominal>0</nominal>\n'
+        '        <lifetime>3600</lifetime>\n'
+        '        <restock>0</restock>\n'
+        '        <min>0</min>\n'
+        '    </type>\n'
+        '</types>\n',
+        encoding="utf-8",
+    )
+
+    official = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        '<types>\n'
+        '    <type name="RFFSHeli_UH1H">\n'
+        '        <nominal>0</nominal>\n'
+        '        <lifetime>3888000</lifetime>\n'
+        '        <restock>0</restock>\n'
+        '        <min>0</min>\n'
+        '        <quantmin>-1</quantmin>\n'
+        '        <quantmax>-1</quantmax>\n'
+        '        <cost>100</cost>\n'
+        '        <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0"/>\n'
+        '    </type>\n'
+        '    <type name="RFFSHeli_UH1H_Wreck">\n'
+        '        <nominal>0</nominal>\n'
+        '        <lifetime>3600</lifetime>\n'
+        '        <restock>0</restock>\n'
+        '        <min>0</min>\n'
+        '    </type>\n'
+        '    <type name="RFFSHeli_wiring_harness">\n'
+        '        <nominal>0</nominal>\n'
+        '        <lifetime>28800</lifetime>\n'
+        '        <restock>0</restock>\n'
+        '        <min>0</min>\n'
+        '        <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0"/>\n'
+        '        <category name="tools"/>\n'
+        '        <usage name="Industrial"/>\n'
+        '        <tag name="floor"/>\n'
+        '    </type>\n'
+        '</types>\n'
+    )
+
+    mock_response = MagicMock()
+    mock_response.read.return_value = official.encode("utf-8")
+    mock_response.__enter__ = MagicMock(return_value=mock_response)
+    mock_response.__exit__ = MagicMock(return_value=False)
+
+    with patch("dayzconfigmaster.economy.aircraft_lifetime.urlopen", return_value=mock_response):
+        result = ensure_rffsheli_types_in_db(mission_dir)
+
+    assert result.success
+    assert result.updated_count == 1
+    assert "RFFSHeli_UH1H" in result.updated
+    assert result.added_count == 2
+    assert "RFFSHeli_UH1H_Wreck" in result.added
+    assert "RFFSHeli_wiring_harness" in result.added
+
+    db_content = db_types.read_text(encoding="utf-8")
+    assert '<type name="RFFSHeli_UH1H_Wreck">' in db_content
+    assert '<type name="RFFSHeli_wiring_harness">' in db_content
+    assert '<category name="tools"' in db_content
+    assert '<usage name="Industrial"' in db_content

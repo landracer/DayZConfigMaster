@@ -6901,6 +6901,7 @@ Requirements:
             from dayzconfigmaster.economy.aircraft_lifetime import (
                 ensure_aircraft_lifetime,
                 ensure_aircraft_types_in_db,
+                ensure_rffsheli_types_in_db,
                 import_missing_aircraft_classes_to_db,
             )
         except Exception as exc:
@@ -6928,7 +6929,19 @@ Requirements:
         elif not merge_result.success and merge_result.error:
             messages.append(f"merge: {merge_result.error}")
 
-        # Second, import script-defined aircraft classes discovered from the
+        # Second, merge the official RFFSHeli types.xml entries. This is the
+        # authoritative source for helicopter variants, wrecks, parts and gear
+        # and prevents the RFFSHeli script-only "_Heli" classes from being
+        # mistaken for the actual vehicle classes.
+        rffs_result = ensure_rffsheli_types_in_db(mission_dir)
+        if rffs_result.success and (rffs_result.added or rffs_result.updated):
+            total_changed += rffs_result.updated_count
+            if rffs_result.backup_path:
+                backup_names.append(rffs_result.backup_path.name)
+        elif not rffs_result.success and rffs_result.error:
+            messages.append(f"rffs: {rffs_result.error}")
+
+        # Third, import script-defined aircraft classes discovered from the
         # server script logs (e.g. RFFSHeli_*, LM_*) that have no types.xml
         # entry at all.
         import_result = import_missing_aircraft_classes_to_db(
@@ -6952,7 +6965,7 @@ Requirements:
             if result.backup_path:
                 backup_names.append(result.backup_path.name)
 
-        if not messages and total_changed == 0 and total_skipped == 0 and not merge_result.added and not import_result.imported:
+        if not messages and total_changed == 0 and total_skipped == 0 and not merge_result.added and not rffs_result.added and not import_result.imported:
             return "No aircraft lifetime changes needed."
 
         msg_parts = []
@@ -6965,6 +6978,11 @@ Requirements:
             msg_parts.append(
                 f"Added {merge_result.added_count} aircraft type(s) to "
                 f"db/types.xml from root types.xml."
+            )
+        if rffs_result.success and rffs_result.added:
+            msg_parts.append(
+                f"Added {rffs_result.added_count} RFFSHeli type(s) from "
+                f"official types.xml into db/types.xml."
             )
         if import_result.success and import_result.imported:
             msg_parts.append(

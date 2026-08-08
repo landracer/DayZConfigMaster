@@ -141,6 +141,22 @@ class TypesXml:
             return TypesXml.parse(content)
         except (IOError, OSError, ValueError):
             return None
+
+    @staticmethod
+    def from_text(content: str) -> Optional['TypesXml']:
+        """
+        Load a types.xml document from a string.
+        
+        Args:
+            content: XML content as a string.
+            
+        Returns:
+            New TypesXml instance, or None if parsing fails.
+        """
+        try:
+            return TypesXml.parse(content)
+        except (ValueError, Exception):
+            return None
     
     def _parse_types(self, root: XElement) -> None:
         """Parse all type entries from the XML."""

@@ -15,6 +15,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
+from urllib.error import URLError
+from urllib.request import urlopen
 
 from .types_xml import TypesXml, TypeEntry
 
@@ -330,6 +332,15 @@ _SCRIPT_LOG_CLASS_RE = re.compile(
     re.MULTILINE | re.IGNORECASE,
 )
 
+# Official RFFSHeli types.xml from the mod author's GitHub. It contains the
+# authoritative entries for all helicopters, wrecks, parts and gear. Merging
+# this into db/types.xml is the most reliable way to prevent RFFSHeli
+# helicopters from despawning and to make RFFSHeli loot spawn correctly.
+_RFFSHELI_TYPES_URL = (
+    "https://raw.githubusercontent.com/RedFalconKen/RedFalconFlightSystem-Heliz/"
+    "main/Config%20Files/Types.XML/RFFSHelis_Types.xml"
+)
+
 
 @dataclass
 class AircraftImportResult:
@@ -418,6 +429,143 @@ def discover_aircraft_classes_from_script_logs(
     return classes
 
 
+def _is_official_rffsheli_type(name: str) -> bool:
+    """Return True if *name* is defined in the official RFFSHeli types.xml."""
+    lower = name.lower()
+    if not lower.startswith("rffsheli_"):
+        return False
+    # Cached copy of the official file, populated on first call.
+    if not hasattr(_is_official_rffsheli_type, "_names"):
+        try:
+            with urlopen(_RFFSHELI_TYPES_URL, timeout=15) as response:
+                text = response.read().decode("utf-8", errors="ignore")
+            xml = TypesXml.from_text(text)
+            _is_official_rffsheli_type._names = {
+                n.lower() for n in xml.get_all_types().keys()
+            } if xml else set()
+        except (URLError, OSError, Exception):
+            _is_official_rffsheli_type._names = set()
+    return lower in _is_official_rffsheli_type._names
+
+
+def ensure_rffsheli_types_in_db(
+    mission_dir: Path,
+    max_lifetime: int = MAX_VEHICLE_LIFETIME,
+) -> AircraftMergeResult:
+    """Merge the official RFFSHeli types.xml entries into ``db/types.xml``.
+
+    The RFFSHeli mod ships many helicopter variants, wrecks, parts and
+    clothing items. The mod author's GitHub provides a reference
+    ``RFFSHelis_Types.xml`` with the correct ``<lifetime>``, ``<category>``,
+    ``<usage>`` and ``<tag>`` values. Copying missing entries into
+    ``db/types.xml`` prevents placed helicopters from despawning and lets
+    RFFSHeli loot spawn naturally.
+
+    Existing entries are left untouched unless their lifetime is shorter than
+    *max_lifetime*.
+
+    Args:
+        mission_dir: The mission folder.
+        max_lifetime: Desired lifetime in seconds.
+
+    Returns:
+        An :class:`AircraftMergeResult` describing added/updated entries.
+    """
+    db_types = mission_dir / "db" / "types.xml"
+    if not db_types.exists():
+        return AircraftMergeResult(
+            success=False,
+            db_types_path=db_types,
+            error=f"db/types.xml not found at {db_types}",
+        )
+
+    try:
+        with urlopen(_RFFSHELI_TYPES_URL, timeout=15) as response:
+            text = response.read().decode("utf-8", errors="ignore")
+    except (URLError, OSError) as exc:
+        return AircraftMergeResult(
+            success=False,
+            db_types_path=db_types,
+            error=f"Could not download official RFFSHeli types.xml: {exc}",
+        )
+
+    official_xml = TypesXml.from_text(text)
+    db_xml = TypesXml.from_file(str(db_types))
+    if official_xml is None:
+        return AircraftMergeResult(
+            success=False,
+            db_types_path=db_types,
+            error="Could not parse official RFFSHeli types.xml",
+        )
+    if db_xml is None:
+        return AircraftMergeResult(
+            success=False,
+            db_types_path=db_types,
+            error=f"Could not parse {db_types}",
+        )
+
+    db_xml._last_loaded_path = str(db_types)
+
+    added: List[str] = []
+    updated: List[str] = []
+
+    for _key, entry in official_xml.get_all_types().items():
+        name = entry.name
+        existing = db_xml.get_type(name)
+        if existing is None:
+            # Copy the official entry verbatim, capping lifetime at max.
+            new_entry = TypeEntry(
+                name=entry.name,
+                categories=list(entry.categories),
+                usages=list(entry.usages),
+                values=list(entry.values),
+                nominal=entry.nominal,
+                min=entry.min,
+                lifetime=max(entry.lifetime, max_lifetime)
+                if entry.lifetime < max_lifetime
+                else entry.lifetime,
+                restock=entry.restock,
+                quantmin=entry.quantmin,
+                quantmax=entry.quantmax,
+                cost=entry.cost,
+                tags=list(entry.tags),
+                flags=dict(entry.flags),
+            )
+            db_xml.set_type(new_entry)
+            added.append(name)
+        elif existing.lifetime < max_lifetime and entry.lifetime >= max_lifetime:
+            existing.lifetime = max_lifetime
+            db_xml.set_type(existing)
+            updated.append(name)
+
+    if not added and not updated:
+        return AircraftMergeResult(
+            success=True,
+            db_types_path=db_types,
+            added=[],
+            updated=[],
+        )
+
+    backup_path = db_xml.backup_types()
+
+    if db_xml.save(str(db_types)):
+        return AircraftMergeResult(
+            success=True,
+            db_types_path=db_types,
+            added=added,
+            updated=updated,
+            backup_path=backup_path,
+        )
+
+    return AircraftMergeResult(
+        success=False,
+        db_types_path=db_types,
+        added=added,
+        updated=updated,
+        error=f"Could not save {db_types}",
+    )
+
+
 def import_missing_aircraft_classes_to_db(
     mission_dir: Path,
     profiles_dir: Path,
@@ -460,6 +608,12 @@ def import_missing_aircraft_classes_to_db(
     imported: List[str] = []
 
     for name in discovered:
+        lower = name.lower()
+        # RFFSHeli script module classes use a "_Heli" suffix. The actual
+        # CfgVehicles classes are handled by ensure_rffsheli_types_in_db(),
+        # so we skip the script-only suffix here to avoid cluttering the DB.
+        if lower.startswith("rffsheli_") and lower.endswith("_heli"):
+            continue
         existing = db_xml.get_type(name)
         from .types_xml import Category
         if existing is not None:
