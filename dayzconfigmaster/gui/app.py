@@ -97,6 +97,7 @@ try:
     from ..mods.settings_discovery import detect_mod_settings_files
     from ..config.spawnabletypes_repair import repair_cfg_spawnable_types
     from ..economy.aircraft_lifetime import ensure_aircraft_lifetime
+    from ..economy.types_repair import repair_nominal_values
     from ..utils.memory_guard import setup_memory_safety
     from ..banlist.vpp_manager import VppAdminTools
 except ImportError:
@@ -122,6 +123,7 @@ except ImportError:
         from dayzconfigmaster.mods.settings_discovery import detect_mod_settings_files
         from dayzconfigmaster.config.spawnabletypes_repair import repair_cfg_spawnable_types
         from dayzconfigmaster.economy.aircraft_lifetime import ensure_aircraft_lifetime
+        from dayzconfigmaster.economy.types_repair import repair_nominal_values
         from dayzconfigmaster.config.deployment_manifest import (
             DeploymentManifestManager,
             compute_quick_skip_status,
@@ -161,6 +163,7 @@ except ImportError:
         from mods.settings_discovery import detect_mod_settings_files
         from config.spawnabletypes_repair import repair_cfg_spawnable_types
         from economy.aircraft_lifetime import ensure_aircraft_lifetime
+        from economy.types_repair import repair_nominal_values
         from config.deployment_manifest import (
             DeploymentManifestManager,
             compute_quick_skip_status,
@@ -4470,6 +4473,10 @@ wait
                             result.instance_dir, mission_target
                         )
                         result.messages.append(lifetime_msg)
+                        nominal_msg = self._repair_nominal_values_on_deploy(
+                            result.instance_dir, mission_target
+                        )
+                        result.messages.append(nominal_msg)
                 except Exception as exc:
                     result.errors.append(f"Mission folder deployment failed: {exc}")
 
@@ -6505,6 +6512,14 @@ Requirements:
                         f"[{self._get_timestamp()}] Instance {instance_id} "
                         f"aircraft lifetime: {lifetime_msg}\n",
                     )
+                    nominal_msg = self._repair_nominal_values_on_deploy(
+                        instance_root, mission_target
+                    )
+                    self.log_text.insert(
+                        tk.END,
+                        f"[{self._get_timestamp()}] Instance {instance_id} "
+                        f"nominal repair: {nominal_msg}\n",
+                    )
             except Exception as exc:
                 return None, f"Failed to deploy mission folder: {exc}"
 
@@ -7001,6 +7016,77 @@ Requirements:
             msg_parts.append("; ".join(messages))
 
         return " ".join(msg_parts)
+
+    def _repair_nominal_values_on_deploy(
+        self,
+        instance_root: Path,
+        target_name: str,
+    ) -> str:
+        """Safety-check db/types.xml for zero-nominal loot after deploy.
+
+        Mod integrations sometimes zero out ``<nominal>`` on loot entries.
+        This scans the deployed ``db/types.xml`` and restores counts from
+        other healthy mission folders in the same instance, preventing
+        silent loot despawn issues.
+
+        Args:
+            instance_root: Root directory of the instance.
+            target_name: Mission folder name being deployed
+                (e.g. ``dayzOffline.enoch``).
+
+        Returns:
+            A short human-readable message describing what was done.
+        """
+        try:
+            from dayzconfigmaster.economy.types_repair import (
+                repair_nominal_values,
+                TypesRepairResult,
+            )
+        except Exception as exc:
+            return f"Nominal repair check failed: {exc}"
+
+        mission_dir = instance_root / "mpmissions" / target_name
+        db_types = mission_dir / "db" / "types.xml"
+        root_types = mission_dir / "types.xml"
+
+        if not db_types.exists():
+            return "Nominal repair skipped: db/types.xml not found."
+
+        # Build reference list from other mission folders on this instance.
+        reference_paths: List[Path] = []
+        mpmissions_dir = instance_root / "mpmissions"
+        if mpmissions_dir.exists():
+            for ref_dir in sorted(mpmissions_dir.iterdir()):
+                if (
+                    ref_dir.is_dir()
+                    and ref_dir.name != target_name
+                    and (ref_dir / "db" / "types.xml").exists()
+                ):
+                    reference_paths.append(ref_dir / "db" / "types.xml")
+
+        if not reference_paths:
+            return "Nominal repair skipped: no reference missions available."
+
+        result = repair_nominal_values(
+            target_path=db_types,
+            reference_paths=reference_paths,
+            fallback_path=root_types if root_types.exists() else None,
+            backup=True,
+        )
+
+        if not result.success:
+            return f"Nominal repair failed: {result.error}"
+
+        if result.repaired_count == 0:
+            return "Nominal repair check passed: no zero-nominal loot found."
+
+        msg = (
+            f"Repaired {result.repaired_count} zero-nominal loot "
+            f"entr{'y' if result.repaired_count == 1 else 'ies'} in db/types.xml."
+        )
+        if result.backup_path:
+            msg += f" Backup: {result.backup_path.name}"
+        return msg
 
     def _start_single_instance(
         self, instance: Dict[str, Any], terminal: bool = False
