@@ -48,12 +48,22 @@ _AIR_KEYWORDS = (
     "h125", "h145", "ec145", "aw139", "aw101",
     "r44", "r66", "s76", "ch146", "nh90", "merlin", "seaking", "puma",
     # Common mod prefixes.
-    "rffs", "expansionhelicopter", "expansionplane",
+    "expansionhelicopter", "expansionplane",
     "lm_", "ext_",
 )
 
-_AIR_RE = re.compile(
-    "|".join(re.escape(k) for k in _AIR_KEYWORDS), re.IGNORECASE
+# Class-name prefixes used by popular aircraft/helicopter mods.
+_AIR_PREFIXES = (
+    "rffsheli_", "lm_", "ext_", "expansionhelicopter", "expansionplane",
+    "expansionmh6", "expansionuh1h",
+)
+
+# Tokens that should only match whole underscore-delimited words. Short tokens
+# such as "an2" or "plane" easily appear inside unrelated class names (e.g.
+# "land_wreck_sed01_aban2_police_de" or "shirt_planeblack"), so we match them
+# as standalone tokens rather than substrings.
+_AIR_TOKENS = frozenset(
+    k for k in _AIR_KEYWORDS if k not in _AIR_PREFIXES
 )
 
 
@@ -79,7 +89,27 @@ class AircraftLifetimeResult:
 
 def _is_aircraft(name: str) -> bool:
     """Return True if *name* looks like an aircraft or helicopter class."""
-    return bool(_AIR_RE.search(name))
+    lower = name.lower()
+
+    # Known mod prefixes first.
+    for prefix in _AIR_PREFIXES:
+        if lower.startswith(prefix):
+            return True
+
+    # Token-based matching on underscore/non-alphanumeric boundaries.
+    # We also allow a keyword to appear at the start of a token when the
+    # remainder is a model variant: digits (Cessna180) or a single letter
+    # (C130J). This avoids matching "plane" inside "planeblack".
+    tokens = re.split(r"[^a-z0-9]+", lower)
+    for tok in tokens:
+        if tok in _AIR_TOKENS:
+            return True
+        for kw in _AIR_TOKENS:
+            if tok.startswith(kw):
+                rest = tok[len(kw):]
+                if not rest or rest.isdigit() or (len(rest) == 1 and rest.isalpha()):
+                    return True
+    return False
 
 
 def ensure_aircraft_lifetime(
@@ -316,6 +346,24 @@ class AircraftImportResult:
         return len(self.imported)
 
 
+def _base_rffs_vehicle_name(script_name: str) -> Optional[str]:
+    """Return the base CfgVehicles name for an RFFSHeli script class.
+
+    RFFSHeli prints script module classes such as ``RFFSHeli_UH1H_Heli`` to
+    the script log, but the actual placeable vehicle class in CfgVehicles is
+    ``RFFSHeli_UH1H`` (without the ``_Heli`` suffix). DayZ's Central Economy
+    only knows about the CfgVehicles class, so we must ensure the base name
+    is present in types.xml.
+    """
+    lower = script_name.lower()
+    if not lower.startswith("rffsheli_") or not lower.endswith("_heli"):
+        return None
+    base = script_name[:-5]  # strip trailing "_Heli"
+    if not base or base == script_name:
+        return None
+    return base
+
+
 def discover_aircraft_classes_from_script_logs(
     profiles_dir: Path,
 ) -> List[str]:
@@ -324,6 +372,10 @@ def discover_aircraft_classes_from_script_logs(
     Mods such as RFFSHeli and LM print their vehicle class names to the
     script log on server startup (``SCRIPT : ClassName``). We harvest those
     lines and keep names that look like aircraft or helicopters.
+
+    For RFFSHeli we also emit the base CfgVehicles class (e.g.
+    ``RFFSHeli_UH1H``) alongside the script class (``RFFSHeli_UH1H_Heli``)
+    because DayZ uses the base class for lifetime/persistence.
     """
     classes: List[str] = []
     if not profiles_dir.exists():
@@ -356,6 +408,12 @@ def discover_aircraft_classes_from_script_logs(
                 continue
             seen.add(lower)
             classes.append(name)
+            # RFFSHeli script classes use a "_Heli" suffix; make sure the
+            # actual CfgVehicles class (without the suffix) is also emitted.
+            base = _base_rffs_vehicle_name(name)
+            if base and base.lower() not in seen:
+                seen.add(base.lower())
+                classes.append(base)
 
     return classes
 

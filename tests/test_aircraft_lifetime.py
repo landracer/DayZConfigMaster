@@ -258,6 +258,7 @@ def test_discover_aircraft_classes_from_script_logs(tmp_path: Path):
     found = discover_aircraft_classes_from_script_logs(profiles)
     assert "LM_MH6" in found
     assert "RFFSHeli_UH1H_Heli" in found
+    assert "RFFSHeli_UH1H" in found  # base CfgVehicles class also emitted
     assert "LM_Aircraft" not in found  # filtered as generic base
     assert "RFFSHeli_base" not in found  # filtered as base class
     assert "SomeOtherMod" not in found
@@ -292,15 +293,22 @@ def test_import_missing_aircraft_classes_from_logs(tmp_path: Path):
     result = import_missing_aircraft_classes_to_db(mission_dir, profiles)
 
     assert result.success
-    assert result.imported_count == 2
+    assert result.imported_count == 3
     assert "RFFSHeli_UH1H_Heli" in result.imported
+    assert "RFFSHeli_UH1H" in result.imported
     assert "LM_MH6" in result.imported
 
     db_content = db_types.read_text(encoding="utf-8")
     assert '<type name="RFFSHeli_UH1H_Heli">' in db_content
+    assert '<type name="RFFSHeli_UH1H">' in db_content
     assert '<type name="LM_MH6">' in db_content
     assert re.search(
         rf'<type name="RFFSHeli_UH1H_Heli">.*?<lifetime>\s*{MAX_VEHICLE_LIFETIME}\s*</lifetime>',
+        db_content,
+        re.DOTALL,
+    )
+    assert re.search(
+        rf'<type name="RFFSHeli_UH1H">.*?<lifetime>\s*{MAX_VEHICLE_LIFETIME}\s*</lifetime>',
         db_content,
         re.DOTALL,
     )
