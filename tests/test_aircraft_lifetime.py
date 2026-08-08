@@ -21,6 +21,8 @@ from dayzconfigmaster.economy.aircraft_lifetime import (
     ensure_rffsheli_types_in_db,
     import_missing_aircraft_classes_to_db,
     discover_aircraft_classes_from_script_logs,
+    remove_bogus_vehicle_spawns,
+    _is_aircraft,
 )
 
 
@@ -386,3 +388,88 @@ def test_ensure_rffsheli_types_in_db(tmp_path: Path):
     assert '<type name="RFFSHeli_wiring_harness">' in db_content
     assert '<category name="tools"' in db_content
     assert '<usage name="Industrial"' in db_content
+
+
+def test_is_aircraft_rejects_wrecks_and_parts():
+    """Detector must not match wrecks, parts, covers or mod module classes."""
+    assert not _is_aircraft("Land_Wreck_hb01_aban2")
+    assert not _is_aircraft("statichelicrash")
+    assert not _is_aircraft("staticairplanecrate")
+    assert not _is_aircraft("wreck_mi8")
+    assert not _is_aircraft("ext_mi24_wheel_1")
+    assert not _is_aircraft("ext_spraycan_ah64d")
+    assert not _is_aircraft("lm_patty_wagon")
+    assert not _is_aircraft("rffs_carcover_apache")
+    assert not _is_aircraft("rffsheli_core")
+    assert not _is_aircraft("rffsheli_uniform_mod")
+
+
+def test_is_aircraft_accepts_real_aircraft():
+    """Detector must still match real aircraft and helicopter classes."""
+    assert _is_aircraft("RFFSHeli_UH1H")
+    assert _is_aircraft("RFFSHeli_Apache_Heli")
+    assert _is_aircraft("LM_A10")
+    assert _is_aircraft("LM_MH6")
+    assert _is_aircraft("C130J")
+    assert _is_aircraft("Harrier")
+    assert _is_aircraft("Ultralight")
+    assert _is_aircraft("ExpansionHelicopterUh1h")
+    assert _is_aircraft("ext_mi8")
+    assert _is_aircraft("ext_uh60m")
+
+
+def test_remove_bogus_vehicle_spawns(tmp_path: Path):
+    """Bogus wreck/part/static entries with Town usage are removed."""
+    db_types = tmp_path / "db" / "types.xml"
+    db_types.parent.mkdir()
+    db_types.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n<types>\n'
+        '    <type name="OffroadHatchback">\n'
+        '        <nominal>20</nominal>\n'
+        '        <lifetime>604800</lifetime>\n'
+        '        <restock>1800</restock>\n'
+        '        <min>10</min>\n'
+        '        <category name="vehicle"/>\n'
+        '        <usage name="Town"/>\n'
+        '    </type>\n'
+        '    <type name="Land_Wreck_hb01_aban2">\n'
+        '        <nominal>0</nominal>\n'
+        '        <lifetime>3888000</lifetime>\n'
+        '        <restock>0</restock>\n'
+        '        <min>0</min>\n'
+        '        <category name="vehicle"/>\n'
+        '        <usage name="Town"/>\n'
+        '    </type>\n'
+        '    <type name="ext_mi24_wheel_1">\n'
+        '        <nominal>0</nominal>\n'
+        '        <lifetime>3888000</lifetime>\n'
+        '        <restock>0</restock>\n'
+        '        <min>0</min>\n'
+        '        <category name="vehicle"/>\n'
+        '        <usage name="Town"/>\n'
+        '    </type>\n'
+        '    <type name="RFFSHeli_UH1H">\n'
+        '        <nominal>0</nominal>\n'
+        '        <lifetime>3888000</lifetime>\n'
+        '        <restock>0</restock>\n'
+        '        <min>0</min>\n'
+        '        <category name="vehicle"/>\n'
+        '    </type>\n'
+        '</types>\n',
+        encoding="utf-8",
+    )
+
+    result = remove_bogus_vehicle_spawns(db_types)
+
+    assert result.success
+    assert result.removed_count == 2
+    assert "Land_Wreck_hb01_aban2" in result.removed
+    assert "ext_mi24_wheel_1" in result.removed
+
+    db_content = db_types.read_text(encoding="utf-8")
+    assert '<type name="OffroadHatchback">' in db_content
+    assert '<type name="RFFSHeli_UH1H">' in db_content
+    assert '<type name="Land_Wreck_hb01_aban2">' not in db_content
+    assert '<type name="ext_mi24_wheel_1">' not in db_content
+    assert result.backup_path is not None
+    assert result.backup_path.exists()

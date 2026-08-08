@@ -6918,6 +6918,7 @@ Requirements:
                 ensure_aircraft_types_in_db,
                 ensure_rffsheli_types_in_db,
                 import_missing_aircraft_classes_to_db,
+                remove_bogus_vehicle_spawns,
             )
         except Exception as exc:
             return f"Aircraft lifetime normalization failed: {exc}"
@@ -6968,6 +6969,19 @@ Requirements:
         elif not import_result.success and import_result.error:
             messages.append(f"import: {import_result.error}")
 
+        # Safety cleanup: older versions of the aircraft detector copied
+        # wrecks, parts and static objects into db/types.xml as vehicles
+        # with Town usage, which caused them to spawn inside houses. Strip
+        # any such bogus entries that may still be present.
+        cleanup_result = remove_bogus_vehicle_spawns(
+            mission_dir / "db" / "types.xml"
+        )
+        if cleanup_result.success and cleanup_result.removed:
+            if cleanup_result.backup_path:
+                backup_names.append(cleanup_result.backup_path.name)
+        elif not cleanup_result.success and cleanup_result.error:
+            messages.append(f"cleanup: {cleanup_result.error}")
+
         for types_path in candidates:
             if not types_path.exists():
                 continue
@@ -6980,7 +6994,7 @@ Requirements:
             if result.backup_path:
                 backup_names.append(result.backup_path.name)
 
-        if not messages and total_changed == 0 and total_skipped == 0 and not merge_result.added and not rffs_result.added and not import_result.imported:
+        if not messages and total_changed == 0 and total_skipped == 0 and not merge_result.added and not rffs_result.added and not import_result.imported and not cleanup_result.removed:
             return "No aircraft lifetime changes needed."
 
         msg_parts = []
@@ -7003,6 +7017,11 @@ Requirements:
             msg_parts.append(
                 f"Imported {import_result.imported_count} script-defined "
                 f"aircraft type(s) from logs into db/types.xml."
+            )
+        if cleanup_result.success and cleanup_result.removed:
+            msg_parts.append(
+                f"Removed {cleanup_result.removed_count} bogus "
+                f"wreck/part/static spawn(s) from db/types.xml."
             )
         if total_skipped:
             msg_parts.append(

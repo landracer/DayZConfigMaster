@@ -68,6 +68,19 @@ _AIR_TOKENS = frozenset(
     k for k in _AIR_KEYWORDS if k not in _AIR_PREFIXES
 )
 
+# Substrings that identify parts, wrecks, static objects, containers, clothing,
+# or other mod assets that are not placeable aircraft/vehicles. These must be
+# rejected before any aircraft prefix/token matching so we never promote a
+# wreck or spraycan to a dynamically-spawning vehicle.
+_NON_AIRCRAFT_SUBSTRINGS = (
+    "wreck", "wrecked", "crashed", "crashsite",
+    "wheel", "tire", "spraycan", "carcover",
+    "crate", "static", "uniform", "clothing",
+)
+
+# Suffixes used by mod module/base classes that are not placeable vehicles.
+_NON_AIRCRAFT_SUFFIXES = ("_mod", "_core", "_base", "_define")
+
 
 @dataclass
 class AircraftLifetimeResult:
@@ -93,7 +106,32 @@ def _is_aircraft(name: str) -> bool:
     """Return True if *name* looks like an aircraft or helicopter class."""
     lower = name.lower()
 
-    # Known mod prefixes first.
+    # Reject obvious non-aircraft substrings first.
+    for bad in _NON_AIRCRAFT_SUBSTRINGS:
+        if bad in lower:
+            return False
+
+    # Reject mod module/base classes.
+    for bad in _NON_AIRCRAFT_SUFFIXES:
+        if lower.endswith(bad):
+            return False
+
+    # Mod prefixes that are too generic on their own must be paired with an
+    # aircraft token (e.g. ext_mi8, lm_a10). This prevents lm_patty_wagon,
+    # ext_mi24_wheel_*, ext_spraycan_*, etc. from being treated as aircraft.
+    if lower.startswith(("ext_", "lm_")):
+        tokens = re.split(r"[^a-z0-9]+", lower)
+        for tok in tokens:
+            if tok in _AIR_TOKENS:
+                return True
+            for kw in _AIR_TOKENS:
+                if tok.startswith(kw):
+                    rest = tok[len(kw):]
+                    if not rest or rest.isdigit() or (len(rest) == 1 and rest.isalpha()):
+                        return True
+        return False
+
+    # Known aircraft mod prefixes.
     for prefix in _AIR_PREFIXES:
         if lower.startswith(prefix):
             return True
@@ -660,4 +698,127 @@ def import_missing_aircraft_classes_to_db(
         db_types_path=db_types,
         imported=imported,
         error=f"Could not save {db_types}",
+    )
+
+
+@dataclass
+class AircraftCleanupResult:
+    """Result of cleaning bogus aircraft entries from db/types.xml."""
+
+    success: bool
+    db_types_path: Path
+    removed: List[str] = field(default_factory=list)
+    backup_path: Optional[Path] = None
+    error: str = ""
+
+    @property
+    def removed_count(self) -> int:
+        return len(self.removed)
+
+
+# Substrings used to identify entries that DCM mistakenly promoted to dynamic
+# vehicle spawns. These are wrecks, parts, static objects, etc. that were
+# copied into db/types.xml with category=vehicle and usage=Town.
+_BOGUS_VEHICLE_SPAWN_SUBSTRINGS = (
+    "wreck", "wheel", "spraycan", "carcover", "crate", "static",
+)
+
+
+def _is_bogus_vehicle_spawn(entry: TypeEntry) -> bool:
+    """Return True if *entry* is a wreck/part/static object masquerading as a vehicle."""
+    lower = entry.name.lower()
+
+    # Must look like a non-aircraft asset.
+    if not any(bad in lower for bad in _BOGUS_VEHICLE_SPAWN_SUBSTRINGS):
+        return False
+
+    # Must be flagged as a vehicle so CE tries to spawn it dynamically.
+    if not any(cat.name.lower() == "vehicle" for cat in entry.categories):
+        return False
+
+    # Must have a town usage to spawn in built-up areas.
+    usages = {use.name.lower() for use in entry.usages}
+    if "town" not in usages:
+        return False
+
+    # Must not be a real aircraft class after tightening the detector.
+    if _is_aircraft(entry.name):
+        return False
+
+    return True
+
+
+def remove_bogus_vehicle_spawns(
+    db_types_path: Path,
+    max_lifetime: int = MAX_VEHICLE_LIFETIME,
+) -> AircraftCleanupResult:
+    """Remove DCM-added wreck/part/static entries that spawn as vehicles in towns.
+
+    Earlier versions of the aircraft detector copied entries such as
+    ``land_wreck_hb01_aban2``, ``ext_mi24_wheel_*``, ``ext_spraycan_*``,
+    ``statichelicrash`` and ``staticairplanecrate`` from root ``types.xml``
+    into ``db/types.xml`` with ``category="vehicle"`` and ``usage="Town"``.
+    DayZ's Central Economy then spawned those wrecks/parts inside houses.
+    This function strips those bogus entries back out.
+
+    Args:
+        db_types_path: Path to ``db/types.xml``.
+        max_lifetime: The DCM max-lifetime value used to identify touched
+            entries (defaults to 45 days).
+
+    Returns:
+        An :class:`AircraftCleanupResult` describing removed entries.
+    """
+    if not db_types_path.exists():
+        return AircraftCleanupResult(
+            success=False,
+            db_types_path=db_types_path,
+            error=f"db/types.xml not found at {db_types_path}",
+        )
+
+    db_xml = TypesXml.from_file(str(db_types_path))
+    if db_xml is None:
+        return AircraftCleanupResult(
+            success=False,
+            db_types_path=db_types_path,
+            error=f"Could not parse {db_types_path}",
+        )
+
+    db_xml._last_loaded_path = str(db_types_path)
+
+    removed: List[str] = []
+    for name in list(db_xml.get_all_types().keys()):
+        entry = db_xml.get_type(name)
+        if entry is None:
+            continue
+        if not _is_bogus_vehicle_spawn(entry):
+            continue
+        # Only remove entries that DCM touched (max lifetime).
+        if entry.lifetime != max_lifetime:
+            continue
+        db_xml.remove_type(name)
+        removed.append(entry.name)
+
+    if not removed:
+        return AircraftCleanupResult(
+            success=True,
+            db_types_path=db_types_path,
+            removed=[],
+        )
+
+    backup_path = db_xml.backup_types()
+
+    if db_xml.save(str(db_types_path)):
+        return AircraftCleanupResult(
+            success=True,
+            db_types_path=db_types_path,
+            removed=removed,
+            backup_path=backup_path,
+        )
+
+    return AircraftCleanupResult(
+        success=False,
+        db_types_path=db_types_path,
+        removed=removed,
+        error=f"Could not save {db_types_path}",
     )
