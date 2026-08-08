@@ -44,6 +44,10 @@ from .aircraft_lifetime import (
     discover_aircraft_classes_from_script_logs,
     MAX_VEHICLE_LIFETIME,
 )
+from .types_repair import (
+    repair_nominal_values,
+    TypesRepairResult,
+)
 
 __all__ = [
     'CeNum',
@@ -65,4 +69,6 @@ __all__ = [
     'AircraftImportResult',
     'discover_aircraft_classes_from_script_logs',
     'MAX_VEHICLE_LIFETIME',
+    'repair_nominal_values',
+    'TypesRepairResult',
 ]
