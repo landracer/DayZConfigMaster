@@ -6883,6 +6883,10 @@ Requirements:
     ) -> str:
         """Ensure aircraft and helicopter types have the max lifetime.
 
+        DayZ may load ``db/types.xml`` or the root ``types.xml`` depending on
+        ``cfgeconomycore.xml``. Mod aircraft classes are often defined only in
+        the root file, so normalize both to guarantee the lifetime is applied.
+
         This is run after the mission folder is deployed so admin-placed
         aircraft do not despawn because of a short ``<lifetime>`` value.
 
@@ -6893,30 +6897,92 @@ Requirements:
         Returns:
             A short human-readable message describing what was done.
         """
-        types_path = instance_root / "mpmissions" / target_name / "db" / "types.xml"
-        if not types_path.exists():
-            return f"No types.xml at {types_path}; skipped aircraft lifetime check."
-
         try:
-            from dayzconfigmaster.economy.aircraft_lifetime import ensure_aircraft_lifetime
-            result = ensure_aircraft_lifetime(types_path)
+            from dayzconfigmaster.economy.aircraft_lifetime import (
+                ensure_aircraft_lifetime,
+                ensure_aircraft_types_in_db,
+                import_missing_aircraft_classes_to_db,
+            )
         except Exception as exc:
             return f"Aircraft lifetime normalization failed: {exc}"
 
-        if not result.success:
-            return f"Aircraft lifetime normalization failed: {result.error}"
-        if result.changed_count == 0:
-            return (
-                f"Aircraft lifetime check: {result.skipped_count} "
-                f"type(s) already at max."
-            )
-        msg = (
-            f"Set aircraft/helicopter lifetime to max for "
-            f"{result.changed_count} type(s) in types.xml."
+        mission_dir = instance_root / "mpmissions" / target_name
+        profiles_dir = instance_root / "profiles"
+        candidates = [
+            mission_dir / "db" / "types.xml",
+            mission_dir / "types.xml",
+        ]
+
+        messages: List[str] = []
+        total_changed = 0
+        total_skipped = 0
+        backup_names: List[str] = []
+
+        # First, copy any aircraft classes from root types.xml that DayZ's
+        # default CE loader would otherwise ignore (db/types.xml is loaded).
+        merge_result = ensure_aircraft_types_in_db(mission_dir)
+        if merge_result.success and (merge_result.added or merge_result.updated):
+            total_changed += merge_result.updated_count
+            if merge_result.backup_path:
+                backup_names.append(merge_result.backup_path.name)
+        elif not merge_result.success and merge_result.error:
+            messages.append(f"merge: {merge_result.error}")
+
+        # Second, import script-defined aircraft classes discovered from the
+        # server script logs (e.g. RFFSHeli_*, LM_*) that have no types.xml
+        # entry at all.
+        import_result = import_missing_aircraft_classes_to_db(
+            mission_dir, profiles_dir
         )
-        if result.backup_path:
-            msg += f" Backup: {result.backup_path.name}"
-        return msg
+        if import_result.success and import_result.imported:
+            if import_result.backup_path:
+                backup_names.append(import_result.backup_path.name)
+        elif not import_result.success and import_result.error:
+            messages.append(f"import: {import_result.error}")
+
+        for types_path in candidates:
+            if not types_path.exists():
+                continue
+            result = ensure_aircraft_lifetime(types_path)
+            if not result.success:
+                messages.append(f"{types_path.name}: {result.error}")
+                continue
+            total_changed += result.changed_count
+            total_skipped += result.skipped_count
+            if result.backup_path:
+                backup_names.append(result.backup_path.name)
+
+        if not messages and total_changed == 0 and total_skipped == 0 and not merge_result.added and not import_result.imported:
+            return "No aircraft lifetime changes needed."
+
+        msg_parts = []
+        if total_changed:
+            msg_parts.append(
+                f"Set aircraft/helicopter lifetime to max for "
+                f"{total_changed} type(s)."
+            )
+        if merge_result.success and merge_result.added:
+            msg_parts.append(
+                f"Added {merge_result.added_count} aircraft type(s) to "
+                f"db/types.xml from root types.xml."
+            )
+        if import_result.success and import_result.imported:
+            msg_parts.append(
+                f"Imported {import_result.imported_count} script-defined "
+                f"aircraft type(s) from logs into db/types.xml."
+            )
+        if total_skipped:
+            msg_parts.append(
+                f"{total_skipped} type(s) already at max lifetime."
+            )
+        if not msg_parts:
+            msg_parts.append("Aircraft lifetime normalization completed.")
+        if backup_names:
+            msg_parts.append(f"Backups: {', '.join(backup_names)}")
+        if messages:
+            msg_parts.append("; ".join(messages))
+
+        return " ".join(msg_parts)
 
     def _start_single_instance(
         self, instance: Dict[str, Any], terminal: bool = False

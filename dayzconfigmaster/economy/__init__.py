@@ -36,6 +36,11 @@ from .eventgroups_xml import EventGroupsXml, EventGroup
 from .aircraft_lifetime import (
     ensure_aircraft_lifetime,
     AircraftLifetimeResult,
+    ensure_aircraft_types_in_db,
+    AircraftMergeResult,
+    import_missing_aircraft_classes_to_db,
+    AircraftImportResult,
+    discover_aircraft_classes_from_script_logs,
     MAX_VEHICLE_LIFETIME,
 )
 
@@ -52,5 +57,10 @@ __all__ = [
     'EventGroup',
     'ensure_aircraft_lifetime',
     'AircraftLifetimeResult',
+    'ensure_aircraft_types_in_db',
+    'AircraftMergeResult',
+    'import_missing_aircraft_classes_to_db',
+    'AircraftImportResult',
+    'discover_aircraft_classes_from_script_logs',
     'MAX_VEHICLE_LIFETIME',
 ]

@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
-from .types_xml import TypesXml
+from .types_xml import TypesXml, TypeEntry
 
 
 # 45 days in seconds. DayZ uses this value as the practical maximum lifetime
@@ -34,9 +34,9 @@ _AIR_KEYWORDS = (
     "ultralight", "microlight", "airship", "zeppelin", "blimp",
     # Common helicopter/aircraft model identifiers.
     "uh1", "huey", "mh6", "littlebird", "ch47", "chinook",
-    "mi8", "mi17", "mi24", "hind", "ka60", "kamov",
+    "mi8", "mi17", "mi24", "hind", "ka60", "kamov", "ka26",
     "blackhawk", "uh60", "apache", "ah64", "ah1", "ah1z", "cobra",
-    "as350", "ec135", "r22", "bell407", "bell429",
+    "as350", "ec135", "r22", "bell407", "bell429", "bell412",
     "c130", "hercules", "an2", "mv22", "v22", "osprey",
     "draken", "l39", "cessna",
     "ch53", "superstallion", "globemaster", "c17", "c5",
@@ -49,6 +49,7 @@ _AIR_KEYWORDS = (
     "r44", "r66", "s76", "ch146", "nh90", "merlin", "seaking", "puma",
     # Common mod prefixes.
     "rffs", "expansionhelicopter", "expansionplane",
+    "lm_", "ext_",
 )
 
 _AIR_RE = re.compile(
@@ -88,7 +89,7 @@ def ensure_aircraft_lifetime(
     """Set ``<lifetime>`` to *max_lifetime* for all aircraft types.
 
     Args:
-        types_path: Path to the mission ``db/types.xml`` file.
+        types_path: Path to a ``types.xml`` file.
         max_lifetime: Desired lifetime in seconds. Defaults to 45 days.
 
     Returns:
@@ -158,4 +159,293 @@ def ensure_aircraft_lifetime(
         types_path=types_path,
         changed=changed,
         error=f"Could not save {types_path}",
+    )
+
+
+@dataclass
+class AircraftMergeResult:
+    """Result of merging aircraft types from root into db/types.xml."""
+
+    success: bool
+    db_types_path: Path
+    added: List[str] = field(default_factory=list)
+    updated: List[str] = field(default_factory=list)
+    backup_path: Optional[Path] = None
+    error: str = ""
+
+    @property
+    def added_count(self) -> int:
+        return len(self.added)
+
+    @property
+    def updated_count(self) -> int:
+        return len(self.updated)
+
+
+def ensure_aircraft_types_in_db(
+    mission_dir: Path,
+    max_lifetime: int = MAX_VEHICLE_LIFETIME,
+) -> AircraftMergeResult:
+    """Merge aircraft entries from root ``types.xml`` into ``db/types.xml``.
+
+    DayZ loads ``db/types.xml`` by default. Modded servers often keep the full
+    mod type list in the mission root ``types.xml``, but those classes are
+    invisible to Central Economy unless they are also present (or referenced)
+    in ``db/types.xml``. This copies any aircraft classes from root that are
+    missing from ``db/types.xml`` and ensures their lifetime is maxed.
+
+    Args:
+        mission_dir: The mission folder (e.g. ``mpmissions/dayzOffline.enoch``).
+        max_lifetime: Desired lifetime in seconds. Defaults to 45 days.
+
+    Returns:
+        An :class:`AircraftMergeResult` describing what was copied/updated.
+    """
+    root_types = mission_dir / "types.xml"
+    db_types = mission_dir / "db" / "types.xml"
+
+    if not root_types.exists():
+        return AircraftMergeResult(
+            success=False,
+            db_types_path=db_types,
+            error=f"Root types.xml not found at {root_types}",
+        )
+    if not db_types.exists():
+        return AircraftMergeResult(
+            success=False,
+            db_types_path=db_types,
+            error=f"db/types.xml not found at {db_types}",
+        )
+
+    root_xml = TypesXml.from_file(str(root_types))
+    db_xml = TypesXml.from_file(str(db_types))
+    if root_xml is None:
+        return AircraftMergeResult(
+            success=False,
+            db_types_path=db_types,
+            error=f"Could not parse {root_types}",
+        )
+    if db_xml is None:
+        return AircraftMergeResult(
+            success=False,
+            db_types_path=db_types,
+            error=f"Could not parse {db_types}",
+        )
+
+    db_xml._last_loaded_path = str(db_types)
+
+    added: List[str] = []
+    updated: List[str] = []
+
+    for _, entry in root_xml.get_all_types().items():
+        if not _is_aircraft(entry.name):
+            continue
+        existing = db_xml.get_type(entry.name)
+        if existing is None:
+            # Copy the entry and force max lifetime.
+            new_entry = TypeEntry(
+                name=entry.name,
+                categories=list(entry.categories),
+                usages=list(entry.usages),
+                values=list(entry.values),
+                nominal=entry.nominal,
+                min=entry.min,
+                lifetime=max_lifetime,
+                restock=entry.restock,
+                quantmin=entry.quantmin,
+                quantmax=entry.quantmax,
+                cost=entry.cost,
+                tags=list(entry.tags),
+                flags=dict(entry.flags),
+            )
+            db_xml.set_type(new_entry)
+            added.append(entry.name)
+        elif existing.lifetime < max_lifetime:
+            existing.lifetime = max_lifetime
+            db_xml.set_type(existing)
+            updated.append(entry.name)
+
+    if not added and not updated:
+        return AircraftMergeResult(
+            success=True,
+            db_types_path=db_types,
+            added=[],
+            updated=[],
+        )
+
+    backup_path = db_xml.backup_types()
+
+    if db_xml.save(str(db_types)):
+        return AircraftMergeResult(
+            success=True,
+            db_types_path=db_types,
+            added=added,
+            updated=updated,
+            backup_path=backup_path,
+        )
+
+    return AircraftMergeResult(
+        success=False,
+        db_types_path=db_types,
+        added=added,
+        updated=updated,
+        error=f"Could not save {db_types}",
+    )
+
+
+# Regex for the "SCRIPT : ClassName" lines that DayZ mods print on startup.
+# Example: " SCRIPT       : RFFSHeli_UH1H_Heli"
+_SCRIPT_LOG_CLASS_RE = re.compile(
+    r"^\s*SCRIPT\s+\(?(?:W|E)?\)?\s*:?\s*(?P<class>[A-Za-z_][A-Za-z0-9_]*)",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+
+@dataclass
+class AircraftImportResult:
+    """Result of importing aircraft classes discovered from script logs."""
+
+    success: bool
+    db_types_path: Path
+    imported: List[str] = field(default_factory=list)
+    backup_path: Optional[Path] = None
+    error: str = ""
+
+    @property
+    def imported_count(self) -> int:
+        return len(self.imported)
+
+
+def discover_aircraft_classes_from_script_logs(
+    profiles_dir: Path,
+) -> List[str]:
+    """Return aircraft-looking class names printed in script logs.
+
+    Mods such as RFFSHeli and LM print their vehicle class names to the
+    script log on server startup (``SCRIPT : ClassName``). We harvest those
+    lines and keep names that look like aircraft or helicopters.
+    """
+    classes: List[str] = []
+    if not profiles_dir.exists():
+        return classes
+
+    # Look at the most recent script logs.
+    logs = sorted(profiles_dir.glob("script_*.log"), reverse=True)[:5]
+    seen = set()
+    for log_path in logs:
+        try:
+            text = log_path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for match in _SCRIPT_LOG_CLASS_RE.finditer(text):
+            name = match.group("class")
+            if not name or name.lower() in seen:
+                continue
+            if not _is_aircraft(name):
+                continue
+            # Avoid generic script/base/container classes that are not
+            # placeable vehicles.
+            lower = name.lower()
+            if lower in ("rffsheli_base", "lm_aircraft", "lm_helicopters",
+                         "lm_planes", "lm_jets", "lm_plane_assets"):
+                continue
+            if lower.endswith("_mod") or lower.endswith("_core"):
+                continue
+            if lower in ("rffsheli_define", "rffsheli_misc", "rffsheli_uniform",
+                         "lm_gunner", "lm_target_systems"):
+                continue
+            seen.add(lower)
+            classes.append(name)
+
+    return classes
+
+
+def import_missing_aircraft_classes_to_db(
+    mission_dir: Path,
+    profiles_dir: Path,
+    max_lifetime: int = MAX_VEHICLE_LIFETIME,
+) -> AircraftImportResult:
+    """Import aircraft classes from script logs into ``db/types.xml``.
+
+    This catches script-defined mod aircraft (e.g. ``RFFSHeli_UH1H_Heli``,
+    ``LM_MH6``) that do not appear in any ``types.xml`` but are printed to
+    the script log at startup. Without a ``types.xml`` entry, they fall back
+    to DayZ's short default lifetime.
+
+    Args:
+        mission_dir: The mission folder.
+        profiles_dir: The server profiles directory containing ``script_*.log``.
+        max_lifetime: Desired lifetime in seconds.
+
+    Returns:
+        An :class:`AircraftImportResult` describing imported classes.
+    """
+    db_types = mission_dir / "db" / "types.xml"
+    if not db_types.exists():
+        return AircraftImportResult(
+            success=False,
+            db_types_path=db_types,
+            error=f"db/types.xml not found at {db_types}",
+        )
+
+    db_xml = TypesXml.from_file(str(db_types))
+    if db_xml is None:
+        return AircraftImportResult(
+            success=False,
+            db_types_path=db_types,
+            error=f"Could not parse {db_types}",
+        )
+
+    db_xml._last_loaded_path = str(db_types)
+
+    discovered = discover_aircraft_classes_from_script_logs(profiles_dir)
+    imported: List[str] = []
+
+    for name in discovered:
+        existing = db_xml.get_type(name)
+        from .types_xml import Category
+        if existing is not None:
+            # Repair existing entries that are missing the vehicle category.
+            if not any(cat.name.lower() == "vehicle" for cat in existing.categories):
+                existing.categories.append(Category(name="vehicle"))
+                if existing.lifetime < max_lifetime:
+                    existing.lifetime = max_lifetime
+                db_xml.set_type(existing)
+                imported.append(name)
+            continue
+        entry = TypeEntry(
+            name=name,
+            nominal=0,
+            min=0,
+            lifetime=max_lifetime,
+            restock=0,
+        )
+        # Add the standard vehicle category so CE treats these the same as
+        # persisted airplanes/vehicles.
+        entry.categories.append(Category(name="vehicle"))
+        db_xml.set_type(entry)
+        imported.append(name)
+
+    if not imported:
+        return AircraftImportResult(
+            success=True,
+            db_types_path=db_types,
+            imported=[],
+        )
+
+    backup_path = db_xml.backup_types()
+
+    if db_xml.save(str(db_types)):
+        return AircraftImportResult(
+            success=True,
+            db_types_path=db_types,
+            imported=imported,
+            backup_path=backup_path,
+        )
+
+    return AircraftImportResult(
+        success=False,
+        db_types_path=db_types,
+        imported=imported,
+        error=f"Could not save {db_types}",
     )

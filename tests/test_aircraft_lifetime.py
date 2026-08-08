@@ -12,7 +12,12 @@ from pathlib import Path
 from dayzconfigmaster.economy.aircraft_lifetime import (
     MAX_VEHICLE_LIFETIME,
     AircraftLifetimeResult,
+    AircraftMergeResult,
+    AircraftImportResult,
     ensure_aircraft_lifetime,
+    ensure_aircraft_types_in_db,
+    import_missing_aircraft_classes_to_db,
+    discover_aircraft_classes_from_script_logs,
 )
 
 
@@ -137,3 +142,165 @@ def test_result_dataclass_properties():
     )
     assert result.changed_count == 2
     assert result.skipped_count == 1
+
+
+def test_root_types_xml_also_normalized(tmp_path: Path):
+    """Root types.xml (where mod aircraft often live) must be normalized too."""
+    mission_dir = tmp_path / "mpmissions" / "dayzOffline.enoch"
+    mission_dir.mkdir(parents=True)
+    root_types = mission_dir / "types.xml"
+    root_types.write_text(SAMPLE_TYPES, encoding="utf-8")
+
+    result = ensure_aircraft_lifetime(root_types)
+    assert result.success
+    assert "RFFS_MH6M" in result.changed
+    assert "ExpansionHelicopterUh1h" in result.changed
+
+    content = root_types.read_text(encoding="utf-8")
+    assert re.search(
+        rf"<lifetime>\s*{MAX_VEHICLE_LIFETIME}\s*</lifetime>", content
+    )
+
+
+def test_merge_aircraft_from_root_to_db(tmp_path: Path):
+    """Aircraft classes in root types.xml but missing from db/types.xml are copied."""
+    mission_dir = tmp_path / "mpmissions" / "dayzOffline.enoch"
+    mission_dir.mkdir(parents=True)
+    db_dir = mission_dir / "db"
+    db_dir.mkdir()
+
+    root_types = mission_dir / "types.xml"
+    root_types.write_text(SAMPLE_TYPES, encoding="utf-8")
+
+    db_types = db_dir / "types.xml"
+    db_types.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n<types>\n'
+        '    <type name="OffroadHatchback">\n'
+        '        <nominal>20</nominal>\n'
+        '        <lifetime>604800</lifetime>\n'
+        '        <restock>1800</restock>\n'
+        '        <min>10</min>\n'
+        '    </type>\n'
+        '</types>\n',
+        encoding="utf-8",
+    )
+
+    result = ensure_aircraft_types_in_db(mission_dir)
+
+    assert result.success
+    assert result.added_count == 3
+    assert "RFFS_MH6M" in result.added
+    assert "ExpansionHelicopterUh1h" in result.added
+    assert "C130J" in result.added
+
+    db_content = db_types.read_text(encoding="utf-8")
+    assert '<type name="RFFS_MH6M">' in db_content
+    assert '<type name="ExpansionHelicopterUh1h">' in db_content
+    assert '<type name="C130J">' in db_content
+    # All aircraft entries should have max lifetime.
+    assert not re.search(r"<lifetime>\s*3\s*</lifetime>", db_content)
+    assert not re.search(r"<lifetime>\s*3600\s*</lifetime>", db_content)
+
+
+def test_merge_updates_existing_aircraft_lifetime(tmp_path: Path):
+    """Aircraft already in db/types.xml get their lifetime maxed."""
+    mission_dir = tmp_path / "mpmissions" / "dayzOffline.enoch"
+    mission_dir.mkdir(parents=True)
+    db_dir = mission_dir / "db"
+    db_dir.mkdir()
+
+    root_types = mission_dir / "types.xml"
+    root_types.write_text(SAMPLE_TYPES, encoding="utf-8")
+
+    db_types = db_dir / "types.xml"
+    db_types.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n<types>\n'
+        '    <type name="RFFS_MH6M">\n'
+        '        <nominal>10</nominal>\n'
+        '        <lifetime>1800</lifetime>\n'
+        '        <restock>1800</restock>\n'
+        '        <min>5</min>\n'
+        '    </type>\n'
+        '</types>\n',
+        encoding="utf-8",
+    )
+
+    result = ensure_aircraft_types_in_db(mission_dir)
+
+    assert result.success
+    assert result.updated_count == 1
+    assert "RFFS_MH6M" in result.updated
+    assert result.added_count == 2
+
+    db_content = db_types.read_text(encoding="utf-8")
+    assert re.search(
+        rf'<type name="RFFS_MH6M">.*?<lifetime>\s*{MAX_VEHICLE_LIFETIME}\s*</lifetime>',
+        db_content,
+        re.DOTALL,
+    )
+
+
+def test_discover_aircraft_classes_from_script_logs(tmp_path: Path):
+    """Aircraft classes printed to script logs are discovered."""
+    profiles = tmp_path / "profiles"
+    profiles.mkdir()
+    log = profiles / "script_2026-08-07_16-01-35.log"
+    log.write_text(
+        " SCRIPT       : LM_Aircraft\n"
+        " SCRIPT       : LM_Helicopters\n"
+        " SCRIPT       : LM_MH6\n"
+        " SCRIPT       : RFFSHeli_UH1H_Heli\n"
+        " SCRIPT       : RFFSHeli_base\n"
+        " SCRIPT       : SomeOtherMod\n",
+        encoding="utf-8",
+    )
+
+    found = discover_aircraft_classes_from_script_logs(profiles)
+    assert "LM_MH6" in found
+    assert "RFFSHeli_UH1H_Heli" in found
+    assert "LM_Aircraft" not in found  # filtered as generic base
+    assert "RFFSHeli_base" not in found  # filtered as base class
+    assert "SomeOtherMod" not in found
+
+
+def test_import_missing_aircraft_classes_from_logs(tmp_path: Path):
+    """Script-discovered aircraft classes are added to db/types.xml."""
+    mission_dir = tmp_path / "mpmissions" / "dayzOffline.enoch"
+    mission_dir.mkdir(parents=True)
+    db_dir = mission_dir / "db"
+    db_dir.mkdir()
+    profiles = tmp_path / "profiles"
+    profiles.mkdir()
+
+    db_types = db_dir / "types.xml"
+    db_types.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n<types>\n'
+        '    <type name="OffroadHatchback">\n'
+        '        <lifetime>604800</lifetime>\n'
+        '    </type>\n'
+        '</types>\n',
+        encoding="utf-8",
+    )
+
+    log = profiles / "script_2026-08-07_16-01-35.log"
+    log.write_text(
+        " SCRIPT       : RFFSHeli_UH1H_Heli\n"
+        " SCRIPT       : LM_MH6\n",
+        encoding="utf-8",
+    )
+
+    result = import_missing_aircraft_classes_to_db(mission_dir, profiles)
+
+    assert result.success
+    assert result.imported_count == 2
+    assert "RFFSHeli_UH1H_Heli" in result.imported
+    assert "LM_MH6" in result.imported
+
+    db_content = db_types.read_text(encoding="utf-8")
+    assert '<type name="RFFSHeli_UH1H_Heli">' in db_content
+    assert '<type name="LM_MH6">' in db_content
+    assert re.search(
+        rf'<type name="RFFSHeli_UH1H_Heli">.*?<lifetime>\s*{MAX_VEHICLE_LIFETIME}\s*</lifetime>',
+        db_content,
+        re.DOTALL,
+    )
