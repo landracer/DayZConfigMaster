@@ -6919,6 +6919,7 @@ Requirements:
                 ensure_rffsheli_types_in_db,
                 import_missing_aircraft_classes_to_db,
                 remove_bogus_vehicle_spawns,
+                repair_vehicle_spawn_usages,
             )
         except Exception as exc:
             return f"Aircraft lifetime normalization failed: {exc}"
@@ -6982,6 +6983,20 @@ Requirements:
         elif not cleanup_result.success and cleanup_result.error:
             messages.append(f"cleanup: {cleanup_result.error}")
 
+        # Spawn-generator repair: the old mod integration workflow assigned
+        # usage="Town" to vehicles, aircraft and boats.  Vehicles should be
+        # event-spawned, so remove Town usage from aircraft/air/water and
+        # delete bogus vehicle entries that are not aircraft.
+        repair_results: List[Any] = []
+        for types_path in candidates:
+            repair_result = repair_vehicle_spawn_usages(types_path)
+            repair_results.append(repair_result)
+            if repair_result.success and (repair_result.removed or repair_result.repaired):
+                if repair_result.backup_path:
+                    backup_names.append(repair_result.backup_path.name)
+            elif not repair_result.success and repair_result.error:
+                messages.append(f"repair ({types_path.name}): {repair_result.error}")
+
         for types_path in candidates:
             if not types_path.exists():
                 continue
@@ -6994,7 +7009,10 @@ Requirements:
             if result.backup_path:
                 backup_names.append(result.backup_path.name)
 
-        if not messages and total_changed == 0 and total_skipped == 0 and not merge_result.added and not rffs_result.added and not import_result.imported and not cleanup_result.removed:
+        total_repaired = sum(r.repaired_count for r in repair_results if r.success)
+        total_removed_repair = sum(r.removed_count for r in repair_results if r.success)
+
+        if not messages and total_changed == 0 and total_skipped == 0 and not merge_result.added and not rffs_result.added and not import_result.imported and not cleanup_result.removed and total_repaired == 0 and total_removed_repair == 0:
             return "No aircraft lifetime changes needed."
 
         msg_parts = []
@@ -7022,6 +7040,16 @@ Requirements:
             msg_parts.append(
                 f"Removed {cleanup_result.removed_count} bogus "
                 f"wreck/part/static spawn(s) from db/types.xml."
+            )
+        if total_repaired:
+            msg_parts.append(
+                f"Repaired {total_repaired} aircraft/air/water type(s) by "
+                f"removing Town usage."
+            )
+        if total_removed_repair:
+            msg_parts.append(
+                f"Removed {total_removed_repair} bogus vehicle type(s) with "
+                f"Town usage from types.xml."
             )
         if total_skipped:
             msg_parts.append(

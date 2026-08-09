@@ -317,10 +317,20 @@ class ModIntegrationTab:
 
     def _get_spawn_options(self) -> Dict[str, Any]:
         """Return the user-selected spawn options for the current selection."""
-        usage = self._usage_var.get().strip() or "Town"
-        value = self._value_var.get().strip() or "Tier12"
+        category = self._get_selected_category()
+        is_vehicle_spawn = category in ("vehicle", "air", "water")
+
+        if is_vehicle_spawn:
+            # Vehicles, aircraft and boats are event-spawned; usage/value tags
+            # would make Central Economy place them as loot inside houses.
+            usage = ""
+            value = ""
+        else:
+            usage = self._usage_var.get().strip() or "Town"
+            value = self._value_var.get().strip() or "Tier12"
+
         warnings: List[str] = []
-        if self.workflow is not None:
+        if self.workflow is not None and usage:
             if not self.workflow.is_valid_usage(usage):
                 warnings.append(f"'{usage}' is not a declared usage in cfglimitsdefinition*.xml")
             if not self.workflow.is_valid_value(value):

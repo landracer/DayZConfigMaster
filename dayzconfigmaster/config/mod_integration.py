@@ -1449,14 +1449,20 @@ class XmlConfigEditor:
         min_count: int = 5,
         quantmin: int = -1,
         quantmax: int = -1,
-        usage: str = "Town",
-        value: str = "Tier12",
+        usage: str = "",
+        value: str = "",
     ) -> bool:
         """Ensure a type entry exists in types.xml.
 
         The *usage* and *value* tags control which buildings/zones the item
         can spawn in. Match them to the tags declared in mapgroupproto.xml for
         the map being used.
+
+        .. note::
+            Vehicles, aircraft and boats are spawned by events.xml, so they
+            should not receive a ``usage``/``value``.  Leaving these blank
+            prevents them from being treated as dynamic loot and spawning
+            inside houses.
         """
         root = self._load_or_create("types.xml")
         if root is None:
@@ -1484,8 +1490,10 @@ class XmlConfigEditor:
             "deloot": "0",
         })
         ET.SubElement(type_elem, "category", {"name": category})
-        ET.SubElement(type_elem, "usage", {"name": usage})
-        ET.SubElement(type_elem, "value", {"name": value})
+        if usage:
+            ET.SubElement(type_elem, "usage", {"name": usage})
+        if value:
+            ET.SubElement(type_elem, "value", {"name": value})
         return self._save("types.xml", root)
 
     def type_exists(self, vehicle_class_name: str) -> bool:
@@ -1684,8 +1692,9 @@ class ModIntegrationWorkflow:
         class_name: str,
         spawn_count: int = 10,
         category: str = "vehicle",
-        usage: str = "Town",
-        value: str = "Tier12",
+        usage: Optional[str] = None,
+        value: Optional[str] = None,
+        lifetime: Optional[int] = None,
         locations: Optional[List[Dict[str, float]]] = None,
     ) -> IntegrationResult:
         """Apply XML changes needed to enable a spawnable mod class.
@@ -1693,7 +1702,12 @@ class ModIntegrationWorkflow:
         *spawn_count* controls the ``<nominal>`` value in types.xml and, for
         vehicles/air/water, the ``<limit nominal>`` value in events.xml.
         *usage* and *value* control the building zones/tiers the item spawns
-        in. *locations* is an optional list of ``{"x", "z", "y", "a"}`` dicts
+        in.  When omitted, sensible defaults are chosen based on *category*;
+        vehicles/air/water receive no usage/value because they are spawned
+        through events.xml, which prevents them from being placed inside
+        houses by Central Economy.
+
+        *locations* is an optional list of ``{"x", "z", "y", "a"}`` dicts
         for exact-coordinate spawning via cfgeventspawns.xml.
         """
         actions: List[IntegrationAction] = []
@@ -1719,6 +1733,19 @@ class ModIntegrationWorkflow:
             ))
 
         is_vehicle = category in ("vehicle", "air", "water")
+
+        # Choose safe defaults when the caller does not specify them.
+        if usage is None:
+            if is_vehicle:
+                usage = ""
+            elif category == "weapon":
+                usage = "Military"
+            else:
+                usage = "Town"
+        if value is None:
+            value = "" if is_vehicle else "Tier12"
+        if lifetime is None:
+            lifetime = 3888000 if is_vehicle else 7200
 
         if locations:
             # Exact-coordinate spawning: write a proper event + cfgeventspawns.xml.
@@ -1774,6 +1801,7 @@ class ModIntegrationWorkflow:
             nominal=spawn_count,
             min_count=max(1, spawn_count // 4),
             category=types_category,
+            lifetime=lifetime,
             usage=usage,
             value=value,
         )

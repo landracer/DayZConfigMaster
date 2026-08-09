@@ -822,3 +822,127 @@ def remove_bogus_vehicle_spawns(
         removed=removed,
         error=f"Could not save {db_types_path}",
     )
+
+
+@dataclass
+class VehicleSpawnRepairResult:
+    """Result of repairing vehicle spawn usage tags in a types.xml file."""
+
+    success: bool
+    types_path: Path
+    removed: List[str] = field(default_factory=list)
+    repaired: List[str] = field(default_factory=list)
+    backup_path: Optional[Path] = None
+    error: str = ""
+
+    @property
+    def removed_count(self) -> int:
+        return len(self.removed)
+
+    @property
+    def repaired_count(self) -> int:
+        return len(self.repaired)
+
+
+def repair_vehicle_spawn_usages(
+    types_path: Path,
+    max_lifetime: int = MAX_VEHICLE_LIFETIME,
+) -> VehicleSpawnRepairResult:
+    """Repair DCM spawn-generator damage in a ``types.xml`` file.
+
+    The spawn generator used to assign ``usage="Town"`` to every integrated
+    class, including vehicles, aircraft and boats.  Vehicles/air/water are
+    spawned through events.xml, so a ``Town`` usage tells Central Economy to
+    place them as dynamic loot inside houses.  This function:
+
+    * Strips ``Town`` usage from aircraft and from ``air``/``water`` entries.
+    * Removes bogus ``vehicle`` entries that have ``Town`` usage and are not
+      aircraft (cars, boats, parts, wrecks that were promoted to dynamic
+      spawns).
+
+    Args:
+        types_path: Path to the ``types.xml`` file to repair.
+        max_lifetime: The DCM max-lifetime value used to identify spawn-
+            generator entries (defaults to 45 days).
+
+    Returns:
+        A :class:`VehicleSpawnRepairResult` describing removed and repaired
+        entries.
+    """
+    if not types_path.exists():
+        return VehicleSpawnRepairResult(
+            success=False,
+            types_path=types_path,
+            error=f"types.xml not found at {types_path}",
+        )
+
+    xml = TypesXml.from_file(str(types_path))
+    if xml is None:
+        return VehicleSpawnRepairResult(
+            success=False,
+            types_path=types_path,
+            error=f"Could not parse {types_path}",
+        )
+
+    xml._last_loaded_path = str(types_path)
+
+    removed: List[str] = []
+    repaired: List[str] = []
+
+    for name in list(xml.get_all_types().keys()):
+        entry = xml.get_type(name)
+        if entry is None:
+            continue
+
+        categories = {cat.name.lower() for cat in entry.categories}
+        usages = {use.name.lower() for use in entry.usages}
+        if "town" not in usages:
+            continue
+
+        def _strip_town() -> None:
+            entry.usages = [
+                use for use in entry.usages
+                if use.name.lower() != "town"
+            ]
+            xml.set_type(entry)
+
+        if "air" in categories or "water" in categories:
+            _strip_town()
+            repaired.append(entry.name)
+        elif "vehicle" in categories:
+            if _is_bogus_vehicle_spawn(entry) and entry.lifetime == max_lifetime:
+                # Spawn-generator promoted a wreck/part/static object to a
+                # dynamic town spawn.  Remove it entirely.
+                xml.remove_type(name)
+                removed.append(entry.name)
+            else:
+                # Real vehicles and aircraft use event spawning, not Town.
+                _strip_town()
+                repaired.append(entry.name)
+
+    if not removed and not repaired:
+        return VehicleSpawnRepairResult(
+            success=True,
+            types_path=types_path,
+            removed=[],
+            repaired=[],
+        )
+
+    backup_path = xml.backup_types()
+
+    if xml.save(str(types_path)):
+        return VehicleSpawnRepairResult(
+            success=True,
+            types_path=types_path,
+            removed=removed,
+            repaired=repaired,
+            backup_path=backup_path,
+        )
+
+    return VehicleSpawnRepairResult(
+        success=False,
+        types_path=types_path,
+        removed=removed,
+        repaired=repaired,
+        error=f"Could not save {types_path}",
+    )

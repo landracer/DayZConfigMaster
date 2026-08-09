@@ -413,6 +413,9 @@ def test_integrate_weapon_only_writes_types_xml():
         types_text = (root / "types.xml").read_text()
         assert "<nominal>25</nominal>" in types_text
         assert 'name="weapon"' in types_text
+        assert 'usage name="Military"' in types_text
+        assert 'value name="Tier12"' in types_text
+        assert "<lifetime>7200</lifetime>" in types_text
         assert "AKM" in types_text
 
 
@@ -433,6 +436,48 @@ def test_integrate_aircraft_writes_events_and_types():
         assert 'nominal="5"' in events_text
         types_text = (root / "types.xml").read_text()
         assert "<nominal>5</nominal>" in types_text
+        assert "<lifetime>3888000</lifetime>" in types_text
+        assert 'usage name=' not in types_text
+        assert 'value name=' not in types_text
+
+
+def test_integrate_vehicle_no_usage_or_value_by_default():
+    from dayzconfigmaster.config.mod_integration import ModIntegrationWorkflow
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "events.xml").write_text("<events></events>")
+        (root / "cfgspawnabletypes.xml").write_text("<spawnabletypes></spawnabletypes>")
+        (root / "types.xml").write_text("<types></types>")
+        workflow = ModIntegrationWorkflow(root)
+
+        result = workflow.integrate_vehicle_mod("OffroadHatchback", spawn_count=8)
+        assert result.ok
+
+        types_text = (root / "types.xml").read_text()
+        assert "<nominal>8</nominal>" in types_text
+        assert "<lifetime>3888000</lifetime>" in types_text
+        assert 'usage name=' not in types_text
+        assert 'value name=' not in types_text
+
+
+def test_integrate_watercraft_no_usage_or_value_by_default():
+    from dayzconfigmaster.config.mod_integration import ModIntegrationWorkflow
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "events.xml").write_text("<events></events>")
+        (root / "cfgspawnabletypes.xml").write_text("<spawnabletypes></spawnabletypes>")
+        (root / "types.xml").write_text("<types></types>")
+        workflow = ModIntegrationWorkflow(root)
+
+        result = workflow.integrate_spawnable_mod("SpeedBoat", spawn_count=3, category="water")
+        assert result.ok
+
+        types_text = (root / "types.xml").read_text()
+        assert "<nominal>3</nominal>" in types_text
+        assert 'usage name=' not in types_text
+        assert 'value name=' not in types_text
 
 
 def test_random_remix_selects_subset():

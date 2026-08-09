@@ -22,6 +22,7 @@ from dayzconfigmaster.economy.aircraft_lifetime import (
     import_missing_aircraft_classes_to_db,
     discover_aircraft_classes_from_script_logs,
     remove_bogus_vehicle_spawns,
+    repair_vehicle_spawn_usages,
     _is_aircraft,
 )
 
@@ -471,5 +472,97 @@ def test_remove_bogus_vehicle_spawns(tmp_path: Path):
     assert '<type name="RFFSHeli_UH1H">' in db_content
     assert '<type name="Land_Wreck_hb01_aban2">' not in db_content
     assert '<type name="ext_mi24_wheel_1">' not in db_content
+    assert result.backup_path is not None
+    assert result.backup_path.exists()
+
+
+def test_repair_vehicle_spawn_usages(tmp_path: Path):
+    """Town usage is stripped from vehicle/air/water and removed from bogus objects."""
+    types_path = tmp_path / "types.xml"
+    types_path.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n<types>\n'
+        '    <type name="OffroadHatchback">\n'
+        '        <nominal>20</nominal>\n'
+        '        <lifetime>604800</lifetime>\n'
+        '        <restock>1800</restock>\n'
+        '        <min>10</min>\n'
+        '        <category name="vehicle"/>\n'
+        '        <usage name="Town"/>\n'
+        '    </type>\n'
+        '    <type name="ModdedCar">\n'
+        '        <nominal>10</nominal>\n'
+        '        <lifetime>3888000</lifetime>\n'
+        '        <restock>1800</restock>\n'
+        '        <min>2</min>\n'
+        '        <category name="vehicle"/>\n'
+        '        <usage name="Town"/>\n'
+        '    </type>\n'
+        '    <type name="Land_Wreck_hb01_aban2">\n'
+        '        <nominal>0</nominal>\n'
+        '        <lifetime>3888000</lifetime>\n'
+        '        <restock>0</restock>\n'
+        '        <min>0</min>\n'
+        '        <category name="vehicle"/>\n'
+        '        <usage name="Town"/>\n'
+        '    </type>\n'
+        '    <type name="RFFSHeli_UH1H">\n'
+        '        <nominal>0</nominal>\n'
+        '        <lifetime>3888000</lifetime>\n'
+        '        <restock>0</restock>\n'
+        '        <min>0</min>\n'
+        '        <category name="vehicle"/>\n'
+        '        <usage name="Town"/>\n'
+        '    </type>\n'
+        '    <type name="LittleBird_Heli">\n'
+        '        <nominal>5</nominal>\n'
+        '        <lifetime>3888000</lifetime>\n'
+        '        <restock>1800</restock>\n'
+        '        <min>1</min>\n'
+        '        <category name="air"/>\n'
+        '        <usage name="Town"/>\n'
+        '    </type>\n'
+        '    <type name="SpeedBoat">\n'
+        '        <nominal>3</nominal>\n'
+        '        <lifetime>3888000</lifetime>\n'
+        '        <restock>1800</restock>\n'
+        '        <min>1</min>\n'
+        '        <category name="water"/>\n'
+        '        <usage name="Town"/>\n'
+        '    </type>\n'
+        '    <type name="AKM">\n'
+        '        <nominal>30</nominal>\n'
+        '        <lifetime>7200</lifetime>\n'
+        '        <restock>0</restock>\n'
+        '        <min>15</min>\n'
+        '        <category name="weapon"/>\n'
+        '        <usage name="Town"/>\n'
+        '    </type>\n'
+        '</types>\n',
+        encoding="utf-8",
+    )
+
+    result = repair_vehicle_spawn_usages(types_path)
+
+    assert result.success
+    assert result.removed_count == 1
+    assert "Land_Wreck_hb01_aban2" in result.removed
+    assert result.repaired_count == 5
+    assert "OffroadHatchback" in result.repaired
+    assert "ModdedCar" in result.repaired
+    assert "RFFSHeli_UH1H" in result.repaired
+    assert "LittleBird_Heli" in result.repaired
+    assert "SpeedBoat" in result.repaired
+
+    content = types_path.read_text(encoding="utf-8")
+    assert '<type name="OffroadHatchback">' in content
+    assert '<type name="ModdedCar">' in content
+    assert '<type name="Land_Wreck_hb01_aban2">' not in content
+    assert '<type name="RFFSHeli_UH1H">' in content
+    assert '<type name="LittleBird_Heli">' in content
+    assert '<type name="SpeedBoat">' in content
+    assert '<type name="AKM">' in content
+    # Vehicle/air/water entries must no longer carry Town usage; weapons keep it.
+    assert '<type name="AKM">\n' in content
+    assert content.count('usage name="Town"') == 1
     assert result.backup_path is not None
     assert result.backup_path.exists()
