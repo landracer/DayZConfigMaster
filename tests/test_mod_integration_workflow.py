@@ -779,6 +779,67 @@ def test_air_keywords_do_not_match_clothing():
         assert cls is not None and cls.category == "air", f"{name} should be air"
 
 
+def test_integrate_vehicle_mod_uses_event_min_max():
+    """Vehicle event entries must use caller-supplied event_min and event_max."""
+    from dayzconfigmaster.config.mod_integration import ModIntegrationWorkflow
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "events.xml").write_text("<events></events>")
+        (root / "cfgspawnabletypes.xml").write_text("<spawnabletypes></spawnabletypes>")
+        (root / "types.xml").write_text("<types></types>")
+        workflow = ModIntegrationWorkflow(root)
+
+        result = workflow.integrate_spawnable_mod(
+            "LittleBird_Heli",
+            spawn_count=5,
+            category="air",
+            event_min=2,
+            event_max=4,
+        )
+        assert result.ok
+
+        events_text = (root / "events.xml").read_text()
+        assert "LittleBird_Heli" in events_text
+        assert '<min>2</min>' in events_text
+        assert '<max>4</max>' in events_text
+        # event_nominal defaults to the midpoint of event_min/event_max.
+        assert '<nominal>3</nominal>' in events_text
+        assert 'nominal="5"' in events_text
+
+        types_text = (root / "types.xml").read_text()
+        assert "<nominal>0</nominal>" in types_text
+        assert "<min>0</min>" in types_text
+
+
+def test_integrate_weapon_mod_uses_min_count():
+    """Loot entries must use caller-supplied min count in types.xml."""
+    from dayzconfigmaster.config.mod_integration import ModIntegrationWorkflow
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "events.xml").write_text("<events></events>")
+        (root / "cfgspawnabletypes.xml").write_text("<spawnabletypes></spawnabletypes>")
+        (root / "types.xml").write_text("<types></types>")
+        workflow = ModIntegrationWorkflow(root)
+
+        result = workflow.integrate_spawnable_mod(
+            "AKM",
+            spawn_count=25,
+            category="weapon",
+            usage="Military",
+            value="Tier34",
+            min_count=12,
+        )
+        assert result.ok
+
+        types_text = (root / "types.xml").read_text()
+        assert "<nominal>25</nominal>" in types_text
+        assert "<min>12</min>" in types_text
+        # Vehicle event min/max must not leak into loot types.xml entries.
+        assert "<max>" not in types_text
+
+
 if __name__ == "__main__":
     test_enable_vehicle_spawning_creates_event()
     test_define_spawnable_type_with_attachments()

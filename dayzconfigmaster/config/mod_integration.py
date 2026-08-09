@@ -1773,11 +1773,14 @@ class ModIntegrationWorkflow:
         locations: Optional[List[Dict[str, float]]] = None,
         event_min: int = 1,
         event_max: int = 1,
+        min_count: Optional[int] = None,
     ) -> IntegrationResult:
         """Apply XML changes needed to enable a spawnable mod class.
 
         *spawn_count* controls the ``<nominal>`` value in types.xml and, for
         vehicles/air/water, the ``<limit nominal>`` value in events.xml.
+        *min_count* controls the ``<min>`` value in types.xml for non-vehicle
+        spawnables (defaults to a quarter of *spawn_count*).
         *usage* and *value* control the building zones/tiers the item spawns
         in.  When omitted, sensible defaults are chosen based on *category*;
         vehicles/air/water receive no usage/value because they are spawned
@@ -1886,7 +1889,10 @@ class ModIntegrationWorkflow:
             types_min = 0
         else:
             types_nominal = spawn_count
-            types_min = max(1, spawn_count // 4)
+            if min_count is None:
+                types_min = max(1, spawn_count // 4)
+            else:
+                types_min = min_count
         ok = self.editor.add_vehicle_to_types_xml(
             class_name,
             nominal=types_nominal,

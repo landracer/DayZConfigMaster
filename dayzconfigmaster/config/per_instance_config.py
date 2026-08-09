@@ -32,10 +32,13 @@ class SpawnableEntry:
     category: str
     source: str
     spawn_count: int = DEFAULT_SPAWN_COUNT
+    min_count: int = 0
     usage: str = "Town"
     value: str = "Tier12"
     tier: int = 1
     locations: List[Dict[str, float]] = field(default_factory=list)
+    event_min: int = 1
+    event_max: int = 1
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -43,10 +46,13 @@ class SpawnableEntry:
             "category": self.category,
             "source": self.source,
             "spawn_count": self.spawn_count,
+            "min_count": self.min_count,
             "usage": self.usage,
             "value": self.value,
             "tier": self.tier,
             "locations": self.locations,
+            "event_min": self.event_min,
+            "event_max": self.event_max,
         }
 
     @classmethod
@@ -56,10 +62,13 @@ class SpawnableEntry:
             category=data.get("category", "generic"),
             source=data.get("source", ""),
             spawn_count=data.get("spawn_count", DEFAULT_SPAWN_COUNT),
+            min_count=data.get("min_count", 0),
             usage=data.get("usage", "Town"),
             value=data.get("value", "Tier12"),
             tier=data.get("tier", 1),
             locations=list(data.get("locations", [])),
+            event_min=data.get("event_min", 1),
+            event_max=data.get("event_max", 1),
         )
 
 
@@ -204,6 +213,7 @@ class PerInstanceConfigManager:
         ok = True
 
         for entry in loadout.enabled:
+            is_vehicle = entry.category in ("vehicle", "air", "water")
             result = workflow.integrate_spawnable_mod(
                 entry.name,
                 spawn_count=entry.spawn_count,
@@ -211,6 +221,9 @@ class PerInstanceConfigManager:
                 usage=entry.usage,
                 value=entry.value,
                 locations=entry.locations,
+                event_min=entry.event_min if is_vehicle else 1,
+                event_max=entry.event_max if is_vehicle else 1,
+                min_count=0 if is_vehicle else entry.min_count,
             )
             if result.ok:
                 messages.append(f"Enabled {entry.name} ({entry.category}) x{entry.spawn_count}")

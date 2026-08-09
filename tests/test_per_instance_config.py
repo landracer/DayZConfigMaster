@@ -146,6 +146,45 @@ def test_apply_spawn_loadout_passes_usage_value_locations(instance_root: Path) -
     assert "200.0" in spawns_text
 
 
+def test_spawnable_entry_round_trip_vehicle_and_loot_counts() -> None:
+    vehicle = SpawnableEntry(
+        "LittleBird_Heli",
+        "air",
+        "Air Mod",
+        spawn_count=5,
+        event_min=2,
+        event_max=4,
+    )
+    loot = SpawnableEntry(
+        "AKM",
+        "weapon",
+        "Weapon Mod",
+        spawn_count=25,
+        min_count=12,
+        usage="Military",
+        value="Tier34",
+        tier=2,
+    )
+
+    vehicle_dict = vehicle.to_dict()
+    loot_dict = loot.to_dict()
+
+    assert vehicle_dict["event_min"] == 2
+    assert vehicle_dict["event_max"] == 4
+    assert "min_count" in vehicle_dict
+
+    assert loot_dict["min_count"] == 12
+    assert loot_dict["tier"] == 2
+
+    restored_vehicle = SpawnableEntry.from_dict(vehicle_dict)
+    restored_loot = SpawnableEntry.from_dict(loot_dict)
+
+    assert restored_vehicle.event_min == 2
+    assert restored_vehicle.event_max == 4
+    assert restored_loot.min_count == 12
+    assert restored_loot.tier == 2
+
+
 def test_apply_mission_scoped_mod_settings_override(instance_root: Path) -> None:
     mission = instance_root / "mpmissions" / "dayzOffline.alteria"
     mission.mkdir(parents=True)

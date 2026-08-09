@@ -8,7 +8,7 @@ import contextlib
 import json
 import random
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
 from typing import Optional, Callable, Dict, Tuple, List, Any
 
@@ -81,11 +81,12 @@ class ModIntegrationTab:
         self._selected_instance: Optional[Dict[str, Any]] = None
 
         parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(6, weight=1)
+        parent.rowconfigure(5, weight=1)
 
         self._build_header()
         self._build_filter_bar()
-        self._build_vehicle_selector()
+        self._build_spawnable_selector()
+        self._build_loadout_queue()
         self._build_actions_tree()
         self._build_remix_bar()
         self._build_status()
@@ -180,7 +181,7 @@ class ModIntegrationTab:
                 command=self._on_category_changed,
             ).pack(side=tk.LEFT, padx=5)
 
-    def _build_vehicle_selector(self) -> None:
+    def _build_spawnable_selector(self) -> None:
         selector = ttk.LabelFrame(self.parent, text="Spawnable Selection", padding=5)
         selector.grid(row=3, column=0, sticky=tk.EW, padx=10, pady=5)
         selector.columnconfigure(1, weight=1)
@@ -192,6 +193,13 @@ class ModIntegrationTab:
         self._search_entry.bind("<KeyRelease>", self._on_search_changed)
         self._search_entry.bind("<Return>", self._on_search_changed)
         ttk.Button(selector, text="Clear", command=self._clear_search).grid(row=0, column=2, padx=2)
+
+        self._match_count_var = tk.StringVar(value="")
+        ttk.Label(
+            selector,
+            textvariable=self._match_count_var,
+            foreground="gray",
+        ).grid(row=0, column=3, columnspan=2, sticky=tk.W, padx=(10, 0))
 
         ttk.Label(selector, text="Class name:").grid(row=1, column=0, sticky=tk.W, padx=(0, 5), pady=(5, 0))
         self._vehicle_var = tk.StringVar(value="")
@@ -205,38 +213,43 @@ class ModIntegrationTab:
         self._vehicle_combo.bind("<<ComboboxSelected>>", self._on_spawnable_selected)
 
         ttk.Button(selector, text="Refresh List", command=self._refresh_spawnables).grid(row=1, column=2, padx=2, pady=(5, 0))
-        ttk.Button(selector, text="Detect Required Changes", command=self._detect).grid(row=1, column=3, padx=2, pady=(5, 0))
-        ttk.Button(selector, text="Apply All Changes", command=self._apply).grid(row=1, column=4, padx=2, pady=(5, 0))
+        ttk.Button(selector, text="Detect", command=self._detect).grid(row=1, column=3, padx=2, pady=(5, 0))
+        ttk.Button(selector, text="Add to Loadout", command=self._add_to_loadout).grid(row=1, column=4, padx=2, pady=(5, 0))
+        ttk.Button(selector, text="Apply Now", command=self._apply).grid(row=1, column=5, padx=2, pady=(5, 0))
 
-        self._match_count_var = tk.StringVar(value="")
-        ttk.Label(
-            selector,
-            textvariable=self._match_count_var,
-            foreground="gray",
-        ).grid(row=0, column=3, columnspan=2, sticky=tk.W, padx=(10, 0))
+        # Category-aware count controls.
+        self._controls_frame = ttk.Frame(selector)
+        self._controls_frame.grid(row=2, column=0, columnspan=6, sticky=tk.EW, pady=(8, 0))
 
-        ttk.Label(selector, text="Map spawn count:").grid(row=2, column=0, sticky=tk.W, padx=(0, 5), pady=(5, 0))
-        self._spawn_count_var = tk.IntVar(value=10)
-        self._spawn_count_spin = ttk.Spinbox(
-            selector,
-            from_=1,
-            to=100,
-            textvariable=self._spawn_count_var,
-            width=10,
-        )
-        self._spawn_count_spin.grid(row=2, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        # Vehicle / Air / Water controls.
+        self._vehicle_controls = ttk.Frame(self._controls_frame)
+        ttk.Label(self._vehicle_controls, text="Map limit:").pack(side=tk.LEFT, padx=(0, 2))
+        self._map_limit_var = tk.IntVar(value=3)
+        ttk.Spinbox(self._vehicle_controls, from_=0, to=100, textvariable=self._map_limit_var, width=8).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(self._vehicle_controls, text="Event min:").pack(side=tk.LEFT, padx=(0, 2))
+        self._event_min_var = tk.IntVar(value=1)
+        ttk.Spinbox(self._vehicle_controls, from_=0, to=100, textvariable=self._event_min_var, width=8).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(self._vehicle_controls, text="Event max:").pack(side=tk.LEFT, padx=(0, 2))
+        self._event_max_var = tk.IntVar(value=1)
+        ttk.Spinbox(self._vehicle_controls, from_=0, to=100, textvariable=self._event_max_var, width=8).pack(side=tk.LEFT, padx=(0, 8))
 
-        zone_frame = ttk.Frame(selector)
-        zone_frame.grid(row=2, column=2, columnspan=3, sticky=tk.W, pady=(5, 0))
-        ttk.Label(zone_frame, text="Usage:").pack(side=tk.LEFT, padx=(0, 2))
+        # Loot (weapon/gear) controls.
+        self._loot_controls = ttk.Frame(self._controls_frame)
+        ttk.Label(self._loot_controls, text="Nominal:").pack(side=tk.LEFT, padx=(0, 2))
+        self._loot_nominal_var = tk.IntVar(value=10)
+        ttk.Spinbox(self._loot_controls, from_=0, to=500, textvariable=self._loot_nominal_var, width=8).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(self._loot_controls, text="Min:").pack(side=tk.LEFT, padx=(0, 2))
+        self._loot_min_var = tk.IntVar(value=5)
+        ttk.Spinbox(self._loot_controls, from_=0, to=500, textvariable=self._loot_min_var, width=8).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(self._loot_controls, text="Usage:").pack(side=tk.LEFT, padx=(0, 2))
         self._usage_var = tk.StringVar(value="Town")
-        ttk.Entry(zone_frame, textvariable=self._usage_var, width=12).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Label(zone_frame, text="Value:").pack(side=tk.LEFT, padx=(0, 2))
+        ttk.Entry(self._loot_controls, textvariable=self._usage_var, width=12).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(self._loot_controls, text="Value:").pack(side=tk.LEFT, padx=(0, 2))
         self._value_var = tk.StringVar(value="Tier12")
-        ttk.Entry(zone_frame, textvariable=self._value_var, width=12).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Label(zone_frame, text="Tier:").pack(side=tk.LEFT, padx=(0, 2))
+        ttk.Entry(self._loot_controls, textvariable=self._value_var, width=12).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(self._loot_controls, text="Tier:").pack(side=tk.LEFT, padx=(0, 2))
         self._tier_var = tk.IntVar(value=1)
-        ttk.Spinbox(zone_frame, from_=1, to=4, textvariable=self._tier_var, width=5).pack(side=tk.LEFT)
+        ttk.Spinbox(self._loot_controls, from_=1, to=4, textvariable=self._tier_var, width=5).pack(side=tk.LEFT)
 
         self._source_var = tk.StringVar(value="")
         self._source_label = ttk.Label(
@@ -245,26 +258,52 @@ class ModIntegrationTab:
             foreground="gray",
             wraplength=800,
         )
-        self._source_label.grid(row=3, column=0, columnspan=5, sticky=tk.EW, pady=(5, 0))
+        self._source_label.grid(row=3, column=0, columnspan=6, sticky=tk.EW, pady=(5, 0))
 
         ttk.Label(
             selector,
-            text="Exact spawn coordinates (optional): one position per line as x z y a. Leave blank for random zone/value spawns.",
+            text="Exact spawn coordinates (optional): one position per line as x z y a. Leave blank for random event spawns.",
             foreground="gray",
             wraplength=800,
-        ).grid(row=4, column=0, columnspan=5, sticky=tk.W, pady=(8, 0))
+        ).grid(row=4, column=0, columnspan=6, sticky=tk.W, pady=(8, 0))
 
         self._locations_text = tk.Text(
             selector,
-            height=4,
+            height=3,
             width=60,
             wrap=tk.NONE,
         )
-        self._locations_text.grid(row=5, column=0, columnspan=5, sticky=tk.EW, pady=(2, 0))
+        self._locations_text.grid(row=5, column=0, columnspan=6, sticky=tk.EW, pady=(2, 0))
+
+        self._on_spawnable_selected()
+
+    def _build_loadout_queue(self) -> None:
+        queue_frame = ttk.LabelFrame(self.parent, text="Spawn Loadout Queue", padding=5)
+        queue_frame.grid(row=4, column=0, sticky=tk.EW, padx=10, pady=5)
+        queue_frame.columnconfigure(0, weight=1)
+
+        cols = ("Class", "Category", "Count", "Notes")
+        self._queue_tree = ttk.Treeview(queue_frame, columns=cols, show="headings", height=5)
+        for c, w in zip(cols, (220, 120, 100, 300)):
+            self._queue_tree.heading(c, text=c)
+            self._queue_tree.column(c, width=w, anchor=tk.CENTER if c == "Count" else tk.W)
+        self._queue_tree.grid(row=0, column=0, sticky=tk.NSEW)
+
+        scroll = ttk.Scrollbar(queue_frame, orient=tk.VERTICAL, command=self._queue_tree.yview)
+        scroll.grid(row=0, column=1, sticky=tk.NS)
+        self._queue_tree.configure(yscrollcommand=scroll.set)
+
+        btn_frame = ttk.Frame(queue_frame)
+        btn_frame.grid(row=1, column=0, columnspan=2, sticky=tk.EW, pady=(5, 0))
+        ttk.Button(btn_frame, text="Remove Selected", command=self._remove_selected_loadout).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="Clear Queue", command=self._clear_loadout).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="Save Queue", command=self._save_loadout).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="Load Queue", command=self._load_loadout).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="Apply Loadout", command=self._apply_loadout).pack(side=tk.RIGHT, padx=2)
 
     def _build_actions_tree(self) -> None:
         tree_frame = ttk.LabelFrame(self.parent, text="Required Actions", padding=5)
-        tree_frame.grid(row=6, column=0, sticky=tk.NSEW, padx=10, pady=5)
+        tree_frame.grid(row=5, column=0, sticky=tk.NSEW, padx=10, pady=5)
         tree_frame.columnconfigure(0, weight=1)
         tree_frame.rowconfigure(0, weight=1)
 
@@ -281,7 +320,7 @@ class ModIntegrationTab:
 
     def _build_remix_bar(self) -> None:
         frame = ttk.LabelFrame(self.parent, text="Random Remix", padding=5)
-        frame.grid(row=7, column=0, sticky=tk.EW, padx=10, pady=5)
+        frame.grid(row=6, column=0, sticky=tk.EW, padx=10, pady=5)
 
         ttk.Label(frame, text="Enable").pack(side=tk.LEFT, padx=(0, 5))
         self._remix_percent_var = tk.IntVar(value=25)
@@ -313,7 +352,7 @@ class ModIntegrationTab:
 
     def _build_status(self) -> None:
         self._status = ttk.Label(self.parent, text="", foreground="gray")
-        self._status.grid(row=8, column=0, sticky=tk.EW, padx=10, pady=(5, 10))
+        self._status.grid(row=7, column=0, sticky=tk.EW, padx=10, pady=(5, 10))
 
     def _get_spawn_options(self) -> Dict[str, Any]:
         """Return the user-selected spawn options for the current selection."""
@@ -323,26 +362,34 @@ class ModIntegrationTab:
         if is_vehicle_spawn:
             # Vehicles, aircraft and boats are event-spawned; usage/value tags
             # would make Central Economy place them as loot inside houses.
-            usage = ""
-            value = ""
+            options: Dict[str, Any] = {
+                "count": self._map_limit_var.get(),
+                "event_min": self._event_min_var.get(),
+                "event_max": self._event_max_var.get(),
+                "usage": "",
+                "value": "",
+                "tier": 1,
+                "locations": self._parse_locations(),
+            }
         else:
             usage = self._usage_var.get().strip() or "Town"
             value = self._value_var.get().strip() or "Tier12"
-
-        warnings: List[str] = []
-        if self.workflow is not None and usage:
-            if not self.workflow.is_valid_usage(usage):
-                warnings.append(f"'{usage}' is not a declared usage in cfglimitsdefinition*.xml")
-            if not self.workflow.is_valid_value(value):
-                warnings.append(f"'{value}' is not a declared usage/tier in cfglimitsdefinition*.xml")
-        options: Dict[str, Any] = {
-            "usage": usage,
-            "value": value,
-            "tier": self._tier_var.get(),
-            "locations": self._parse_locations(),
-        }
-        if warnings:
-            options["warnings"] = warnings
+            warnings: List[str] = []
+            if self.workflow is not None:
+                if not self.workflow.is_valid_usage(usage):
+                    warnings.append(f"'{usage}' is not a declared usage in cfglimitsdefinition*.xml")
+                if not self.workflow.is_valid_value(value):
+                    warnings.append(f"'{value}' is not a declared usage/tier in cfglimitsdefinition*.xml")
+            options = {
+                "count": self._loot_nominal_var.get(),
+                "min": self._loot_min_var.get(),
+                "usage": usage,
+                "value": value,
+                "tier": self._tier_var.get(),
+                "locations": self._parse_locations(),
+            }
+            if warnings:
+                options["warnings"] = warnings
         return options
 
     def _parse_locations(self) -> List[Dict[str, float]]:
@@ -472,6 +519,17 @@ class ModIntegrationTab:
 
     def _on_spawnable_selected(self, event=None) -> None:
         name = self._vehicle_var.get().strip()
+        category = self._get_selected_category()
+        is_vehicle = category in ("vehicle", "air", "water")
+
+        # Toggle the relevant count controls.
+        if is_vehicle:
+            self._vehicle_controls.pack(side=tk.LEFT, fill=tk.X)
+            self._loot_controls.pack_forget()
+        else:
+            self._loot_controls.pack(side=tk.LEFT, fill=tk.X)
+            self._vehicle_controls.pack_forget()
+
         if not name:
             self._source_var.set("Type or select a mod class name.")
             return
@@ -618,7 +676,7 @@ class ModIntegrationTab:
             self.workflow = None
 
     def _save_instance_loadout(self) -> None:
-        """Persist the currently enabled spawnables to the selected instance."""
+        """Persist the current loadout queue to the selected instance."""
         instance_root = self._get_selected_instance_root()
         if instance_root is None:
             messagebox.showwarning(
@@ -636,17 +694,22 @@ class ModIntegrationTab:
 
             manager = PerInstanceConfigManager(instance_root)
             loadout = InstanceSpawnLoadout()
-            for entry in self._applied_spawnables:
+            for item in self._queue_tree.get_children():
+                entry = json.loads(self._queue_tree.item(item, "tags")[0])
+                is_vehicle = entry.get("category") in ("vehicle", "air", "water")
                 loadout.enabled.append(
                     SpawnableEntry(
                         name=entry["name"],
                         category=entry["category"],
-                        source=entry["source"],
-                        spawn_count=entry["spawn_count"],
+                        source=entry.get("source", ""),
+                        spawn_count=entry.get("count", 10),
+                        min_count=entry.get("min", 0) if not is_vehicle else 0,
                         usage=entry.get("usage", "Town"),
                         value=entry.get("value", "Tier12"),
                         tier=entry.get("tier", 1),
                         locations=entry.get("locations", []),
+                        event_min=entry.get("event_min", 1) if is_vehicle else 1,
+                        event_max=entry.get("event_max", 1) if is_vehicle else 1,
                     )
                 )
             manager.save_spawn_loadout(loadout)
@@ -656,16 +719,13 @@ class ModIntegrationTab:
             )
 
     def _load_instance_loadout(self) -> None:
-        """Apply the saved spawn loadout for the selected instance."""
+        """Load the saved spawn loadout for the selected instance into the queue."""
         instance_root = self._get_selected_instance_root()
         if instance_root is None:
             messagebox.showwarning(
                 "No Instance",
                 "Select a server instance before loading the loadout.",
             )
-            return
-
-        if not self._ensure_workflow():
             return
 
         from dayzconfigmaster.config.per_instance_config import (
@@ -681,108 +741,45 @@ class ModIntegrationTab:
             )
             return
 
-        if not messagebox.askyesno(
-            "Confirm Load Loadout",
-            f"Apply {len(loadout.enabled)} saved spawnable(s) to the mission?\n\n"
-            "Backups will be created automatically.",
-        ):
-            return
+        self._clear_loadout()
+        for entry in loadout.enabled:
+            is_vehicle = entry.category in ("vehicle", "air", "water")
+            options: Dict[str, Any] = {
+                "count": entry.spawn_count,
+                "locations": list(entry.locations),
+            }
+            if is_vehicle:
+                options["event_min"] = entry.event_min
+                options["event_max"] = entry.event_max
+            else:
+                options["min"] = entry.min_count
+                options["usage"] = entry.usage
+                options["value"] = entry.value
+                options["tier"] = entry.tier
 
-        self._set_busy(f"Loading {len(loadout.enabled)} spawnable(s)...")
-        for item in self._tree.get_children():
-            self._tree.delete(item)
-        self._tree.insert(
-            "",
-            tk.END,
-            values=("summary", f"Loading {len(loadout.enabled)} spawnable(s)...", "In progress"),
+            payload = {
+                "name": entry.name,
+                "category": entry.category,
+                "source": entry.source,
+                **options,
+            }
+            count_label = self._format_count_label(options, is_vehicle)
+            notes = self._format_loadout_notes(options, is_vehicle)
+            self._queue_tree.insert(
+                "",
+                tk.END,
+                values=(entry.name, _CATEGORY_LABELS.get(entry.category, entry.category), count_label, notes),
+                tags=(json.dumps(payload),),
+            )
+
+        self._status.config(
+            text=f"Loaded {len(loadout.enabled)} saved spawnable(s) into the queue.",
+            foreground="green",
         )
 
-        def _run() -> None:
-            applied: List[Dict[str, Any]] = []
-            failed: List[Tuple[str, str]] = []
-            for entry in loadout.enabled:
-                try:
-                    result = self.workflow.integrate_spawnable_mod(
-                        entry.name,
-                        spawn_count=entry.spawn_count,
-                        category=entry.category,
-                        usage=entry.usage,
-                        value=entry.value,
-                        locations=entry.locations,
-                    )
-                except Exception as exc:  # pragma: no cover - defensive UI handling
-                    failed.append((entry.name, str(exc)))
-                    continue
-
-                if result.ok:
-                    applied.append(
-                        {
-                            "name": entry.name,
-                            "category": entry.category,
-                            "source": entry.source,
-                            "spawn_count": entry.spawn_count,
-                            "usage": entry.usage,
-                            "value": entry.value,
-                            "tier": entry.tier,
-                            "locations": list(entry.locations),
-                        }
-                    )
-                else:
-                    error = "unknown"
-                    if result.actions:
-                        last_error = next(
-                            (a.error for a in reversed(result.actions) if a.error),
-                            None,
-                        )
-                        if last_error:
-                            error = last_error
-                    failed.append((entry.name, error))
-
-            def _show() -> None:
-                try:
-                    for item in self._tree.get_children():
-                        self._tree.delete(item)
-
-                    for name, error in failed:
-                        self._tree.insert(
-                            "",
-                            tk.END,
-                            values=("summary", f"Failed to enable {name}", f"Failed: {error}"),
-                        )
-                    for entry in applied:
-                        self._tree.insert(
-                            "",
-                            tk.END,
-                            values=("summary", f"Enabled {entry['name']} ({entry['category']}) x{entry['spawn_count']}", "Applied"),
-                        )
-
-                    applied_names = {e["name"] for e in applied}
-                    self._applied_spawnables = [
-                        x for x in self._applied_spawnables
-                        if x["name"] not in applied_names
-                    ]
-                    self._applied_spawnables.extend(applied)
-
-                    summary = (
-                        f"Loadout loaded: {len(applied)} applied, {len(failed)} failed."
-                    )
-                    self._tree.insert("", tk.END, values=("summary", summary, "Done"))
-                    if not failed:
-                        self._status.config(text=summary, foreground="green")
-                        messagebox.showinfo("Loadout Loaded", summary)
-                    else:
-                        self._status.config(text=summary, foreground="red")
-                        messagebox.showerror("Loadout Incomplete", summary)
-                finally:
-                    self._clear_busy()
-
-            self.parent.after(0, _show)
-
-        import threading
-        threading.Thread(target=_run, daemon=True).start()
-
-    def _get_selected_category(self) -> str:
-        name = self._vehicle_var.get().strip()
+    def _get_selected_category(self, name: Optional[str] = None) -> str:
+        if name is None:
+            name = self._vehicle_var.get().strip()
         spawnable = self._spawnable_sources.get(name)
         if spawnable:
             return spawnable.category
@@ -822,8 +819,10 @@ class ModIntegrationTab:
         name = self._vehicle_var.get().strip()
         if not name:
             return
+        self._apply_single(name, self._get_spawn_options())
 
-        options = self._get_spawn_options()
+    def _apply_single(self, name: str, options: Dict[str, Any]) -> None:
+        """Apply changes for a single class name."""
         warnings = options.get("warnings", [])
         if warnings:
             warning_text = "\n".join(f"• {w}" for w in warnings)
@@ -845,16 +844,17 @@ class ModIntegrationTab:
 
         def _run() -> None:
             try:
-                spawn_count = self._spawn_count_var.get()
-                category = self._get_selected_category()
-                options = self._get_spawn_options()
+                category = self._get_selected_category(name)
                 result = self.workflow.integrate_spawnable_mod(
                     name,
-                    spawn_count=spawn_count,
+                    spawn_count=options.get("count", 10),
                     category=category,
-                    usage=options["usage"],
-                    value=options["value"],
-                    locations=options["locations"],
+                    usage=options.get("usage", ""),
+                    value=options.get("value", ""),
+                    locations=options.get("locations", []),
+                    event_min=options.get("event_min", 1),
+                    event_max=options.get("event_max", 1),
+                    min_count=options.get("min"),
                 )
             except Exception as exc:  # pragma: no cover - defensive UI handling
                 result = None
@@ -867,6 +867,216 @@ class ModIntegrationTab:
 
         import threading
         threading.Thread(target=_run, daemon=True).start()
+
+    # ------------------------------------------------------------------ #
+    # Spawn loadout queue
+    # ------------------------------------------------------------------ #
+
+    def _add_to_loadout(self) -> None:
+        name = self._vehicle_var.get().strip()
+        if not name:
+            self._status.config(text="Select a class name before adding to the loadout.", foreground="red")
+            return
+
+        category = self._get_selected_category(name)
+        is_vehicle = category in ("vehicle", "air", "water")
+        options = self._get_spawn_options()
+        count_label = self._format_count_label(options, is_vehicle)
+        notes = self._format_loadout_notes(options, is_vehicle)
+
+        spawnable = self._spawnable_sources.get(name)
+        source = spawnable.source if spawnable else ""
+        payload = {"name": name, "category": category, "source": source, **options}
+
+        # Update existing row if the class is already queued.
+        for item in self._queue_tree.get_children():
+            if self._queue_tree.item(item, "values")[0] == name:
+                self._queue_tree.item(
+                    item,
+                    values=(name, _CATEGORY_LABELS.get(category, category), count_label, notes),
+                    tags=(json.dumps(payload),),
+                )
+                self._status.config(text=f"Updated {name} in loadout queue.", foreground="green")
+                return
+
+        self._queue_tree.insert(
+            "",
+            tk.END,
+            values=(name, _CATEGORY_LABELS.get(category, category), count_label, notes),
+            tags=(json.dumps(payload),),
+        )
+        self._status.config(text=f"Added {name} to loadout queue.", foreground="green")
+
+    def _format_count_label(self, options: Dict[str, Any], is_vehicle: bool) -> str:
+        if is_vehicle:
+            return f"map={options.get('count', 1)} / evt {options.get('event_min', 1)}-{options.get('event_max', 1)}"
+        return f"nom={options.get('count', 10)} / min={options.get('min', 5)}"
+
+    def _format_loadout_notes(self, options: Dict[str, Any], is_vehicle: bool) -> str:
+        parts: List[str] = []
+        if not is_vehicle:
+            if options.get("usage"):
+                parts.append(f"usage={options['usage']}")
+            if options.get("value"):
+                parts.append(f"value={options['value']}")
+            parts.append(f"tier={options.get('tier', 1)}")
+        locs = options.get("locations", [])
+        if locs:
+            parts.append(f"{len(locs)} exact pos")
+        warnings = options.get("warnings", [])
+        if warnings:
+            parts.append("warnings")
+        return ", ".join(parts) if parts else "defaults"
+
+    def _remove_selected_loadout(self) -> None:
+        selection = self._queue_tree.selection()
+        if not selection:
+            self._status.config(text="Select a loadout row to remove.", foreground="orange")
+            return
+        for item in selection:
+            self._queue_tree.delete(item)
+        self._status.config(text="Removed selected row(s) from loadout.", foreground="green")
+
+    def _clear_loadout(self) -> None:
+        for item in self._queue_tree.get_children():
+            self._queue_tree.delete(item)
+        self._status.config(text="Loadout queue cleared.", foreground="gray")
+
+    def _apply_loadout(self) -> None:
+        if not self._ensure_workflow():
+            return
+        items = self._queue_tree.get_children()
+        if not items:
+            self._status.config(text="Loadout queue is empty.", foreground="orange")
+            return
+
+        entries: List[Dict[str, Any]] = []
+        for item in items:
+            tag = self._queue_tree.item(item, "tags")[0]
+            entries.append(json.loads(tag))
+
+        names = ", ".join(e["name"] for e in entries)
+        if not messagebox.askyesno(
+            "Apply Loadout",
+            f"Apply loadout for {len(entries)} spawnable(s):\n{names}\n\n"
+            "Backups will be created automatically.",
+        ):
+            return
+
+        self._set_busy("Applying loadout...")
+        self._loadout_queue = entries
+        self._loadout_index = 0
+        self._loadout_errors: List[str] = []
+        self._loadout_results: List[Any] = []
+        self._apply_next_in_loadout()
+
+    def _apply_next_in_loadout(self) -> None:
+        if self._loadout_index >= len(self._loadout_queue):
+            self._finish_loadout()
+            return
+
+        entry = self._loadout_queue[self._loadout_index]
+        name = entry["name"]
+        options = {
+            k: v for k, v in entry.items()
+            if k not in ("name", "category")
+        }
+
+        def _run() -> None:
+            try:
+                category = entry.get("category", self._get_selected_category(name))
+                result = self.workflow.integrate_spawnable_mod(
+                    name,
+                    spawn_count=options.get("count", 10),
+                    category=category,
+                    usage=options.get("usage", ""),
+                    value=options.get("value", ""),
+                    locations=options.get("locations", []),
+                    event_min=options.get("event_min", 1),
+                    event_max=options.get("event_max", 1),
+                    min_count=options.get("min"),
+                )
+                self._loadout_results.append(result)
+                if not result.success:
+                    self._loadout_errors.append(f"{name}: integration reported failure")
+            except Exception as exc:  # pragma: no cover
+                self._loadout_errors.append(f"{name}: {exc}")
+
+            def _next() -> None:
+                self._loadout_index += 1
+                self._apply_next_in_loadout()
+
+            self.parent.after(0, _next)
+
+        import threading
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _finish_loadout(self) -> None:
+        total = len(self._loadout_queue)
+        errors = len(self._loadout_errors)
+        if errors:
+            self._status.config(
+                text=f"Loadout applied with {errors} error(s). See dialog for details.",
+                foreground="red",
+            )
+            messagebox.showerror("Loadout Errors", "\n".join(self._loadout_errors))
+        else:
+            self._status.config(text=f"Loadout applied: {total} spawnable(s).", foreground="green")
+
+        for item in self._tree.get_children():
+            self._tree.delete(item)
+        for result in self._loadout_results:
+            for action in result.actions:
+                status = "Applied" if action.applied else "Failed"
+                self._tree.insert("", tk.END, values=(action.file_name, action.description, status))
+        self._clear_busy()
+
+    def _save_loadout(self) -> None:
+        path = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=(("JSON files", "*.json"), ("All files", "*.*")),
+            title="Save Spawn Loadout",
+        )
+        if not path:
+            return
+        entries = [json.loads(self._queue_tree.item(item, "tags")[0]) for item in self._queue_tree.get_children()]
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(entries, f, indent=2)
+            self._status.config(text=f"Saved loadout with {len(entries)} row(s).", foreground="green")
+        except Exception as exc:  # pragma: no cover
+            self._status.config(text=f"Failed to save loadout: {exc}", foreground="red")
+
+    def _load_loadout(self) -> None:
+        path = filedialog.askopenfilename(
+            defaultextension=".json",
+            filetypes=(("JSON files", "*.json"), ("All files", "*.*")),
+            title="Load Spawn Loadout",
+        )
+        if not path:
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                entries = json.load(f)
+        except Exception as exc:  # pragma: no cover
+            self._status.config(text=f"Failed to load loadout: {exc}", foreground="red")
+            return
+
+        self._clear_loadout()
+        for entry in entries:
+            name = entry.get("name", "")
+            category = entry.get("category", "vehicle")
+            is_vehicle = category in ("vehicle", "air", "water")
+            options = {k: v for k, v in entry.items() if k not in ("name", "category")}
+            count_label = self._format_count_label(options, is_vehicle)
+            notes = self._format_loadout_notes(options, is_vehicle)
+            self._queue_tree.insert(
+                "",
+                tk.END,
+                values=(name, _CATEGORY_LABELS.get(category, category), count_label, notes),
+                tags=(json.dumps(entry),),
+            )
+        self._status.config(text=f"Loaded loadout with {len(entries)} row(s).", foreground="green")
 
     def _display_result(self, result: Optional[object], error: str, name: str) -> None:
         try:
@@ -918,6 +1128,7 @@ class ModIntegrationTab:
             source = "manual"
             category = "generic"
         options = self._get_spawn_options()
+        is_vehicle = category in ("vehicle", "air", "water")
         # Avoid duplicates; move to end to preserve latest order.
         self._applied_spawnables = [
             x for x in self._applied_spawnables if x["name"] != name
@@ -927,11 +1138,14 @@ class ModIntegrationTab:
                 "name": name,
                 "category": category,
                 "source": source,
-                "spawn_count": self._spawn_count_var.get(),
-                "usage": options["usage"],
-                "value": options["value"],
-                "tier": options["tier"],
-                "locations": options["locations"],
+                "spawn_count": options.get("count", 10),
+                "min_count": 0 if is_vehicle else options.get("min", 5),
+                "usage": options.get("usage", ""),
+                "value": options.get("value", ""),
+                "tier": options.get("tier", 1),
+                "locations": options.get("locations", []),
+                "event_min": options.get("event_min", 1) if is_vehicle else 1,
+                "event_max": options.get("event_max", 1) if is_vehicle else 1,
             }
         )
 
