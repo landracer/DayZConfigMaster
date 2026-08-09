@@ -840,6 +840,37 @@ def test_integrate_weapon_mod_uses_min_count():
         assert "<max>" not in types_text
 
 
+def test_integrate_weapon_mod_uses_lifetime_restock_quant():
+    """Loot entries must use caller-supplied lifetime, restock, quantmin, quantmax."""
+    from dayzconfigmaster.config.mod_integration import ModIntegrationWorkflow
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "events.xml").write_text("<events></events>")
+        (root / "cfgspawnabletypes.xml").write_text("<spawnabletypes></spawnabletypes>")
+        (root / "types.xml").write_text("<types></types>")
+        workflow = ModIntegrationWorkflow(root)
+
+        result = workflow.integrate_spawnable_mod(
+            "AKM",
+            spawn_count=25,
+            category="weapon",
+            usage="Military",
+            value="Tier3",
+            lifetime=14400,
+            restock=1800,
+            quantmin=50,
+            quantmax=90,
+        )
+        assert result.ok
+
+        types_text = (root / "types.xml").read_text()
+        assert "<lifetime>14400</lifetime>" in types_text
+        assert "<restock>1800</restock>" in types_text
+        assert "<quantmin>50</quantmin>" in types_text
+        assert "<quantmax>90</quantmax>" in types_text
+
+
 if __name__ == "__main__":
     test_enable_vehicle_spawning_creates_event()
     test_define_spawnable_type_with_attachments()

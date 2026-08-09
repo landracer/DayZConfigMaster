@@ -251,6 +251,21 @@ class ModIntegrationTab:
         self._tier_var = tk.IntVar(value=1)
         ttk.Spinbox(self._loot_controls, from_=1, to=4, textvariable=self._tier_var, width=5).pack(side=tk.LEFT)
 
+        # Advanced loot controls (lifetime, restock, quant).
+        self._advanced_loot_controls = ttk.Frame(self._controls_frame)
+        ttk.Label(self._advanced_loot_controls, text="Lifetime:").pack(side=tk.LEFT, padx=(0, 2))
+        self._loot_lifetime_var = tk.IntVar(value=7200)
+        ttk.Spinbox(self._advanced_loot_controls, from_=0, to=3888000, textvariable=self._loot_lifetime_var, width=10).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(self._advanced_loot_controls, text="Restock:").pack(side=tk.LEFT, padx=(0, 2))
+        self._loot_restock_var = tk.IntVar(value=0)
+        ttk.Spinbox(self._advanced_loot_controls, from_=0, to=86400, textvariable=self._loot_restock_var, width=10).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(self._advanced_loot_controls, text="QuantMin:").pack(side=tk.LEFT, padx=(0, 2))
+        self._loot_quantmin_var = tk.IntVar(value=30)
+        ttk.Spinbox(self._advanced_loot_controls, from_=-1, to=100, textvariable=self._loot_quantmin_var, width=8).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(self._advanced_loot_controls, text="QuantMax:").pack(side=tk.LEFT, padx=(0, 2))
+        self._loot_quantmax_var = tk.IntVar(value=80)
+        ttk.Spinbox(self._advanced_loot_controls, from_=-1, to=100, textvariable=self._loot_quantmax_var, width=8).pack(side=tk.LEFT)
+
         self._source_var = tk.StringVar(value="")
         self._source_label = ttk.Label(
             selector,
@@ -383,6 +398,10 @@ class ModIntegrationTab:
             options = {
                 "count": self._loot_nominal_var.get(),
                 "min": self._loot_min_var.get(),
+                "lifetime": self._loot_lifetime_var.get(),
+                "restock": self._loot_restock_var.get(),
+                "quantmin": self._loot_quantmin_var.get(),
+                "quantmax": self._loot_quantmax_var.get(),
                 "usage": usage,
                 "value": value,
                 "tier": self._tier_var.get(),
@@ -524,10 +543,12 @@ class ModIntegrationTab:
 
         # Toggle the relevant count controls.
         if is_vehicle:
-            self._vehicle_controls.pack(side=tk.LEFT, fill=tk.X)
+            self._vehicle_controls.pack(side=tk.TOP, fill=tk.X, anchor=tk.W)
             self._loot_controls.pack_forget()
+            self._advanced_loot_controls.pack_forget()
         else:
-            self._loot_controls.pack(side=tk.LEFT, fill=tk.X)
+            self._loot_controls.pack(side=tk.TOP, fill=tk.X, anchor=tk.W)
+            self._advanced_loot_controls.pack(side=tk.TOP, fill=tk.X, anchor=tk.W, pady=(4, 0))
             self._vehicle_controls.pack_forget()
 
         if not name:
@@ -704,6 +725,10 @@ class ModIntegrationTab:
                         source=entry.get("source", ""),
                         spawn_count=entry.get("count", 10),
                         min_count=entry.get("min", 0) if not is_vehicle else 0,
+                        lifetime=entry.get("lifetime", 7200) if not is_vehicle else 3888000,
+                        restock=entry.get("restock", 0) if not is_vehicle else 1800,
+                        quantmin=entry.get("quantmin", 30) if not is_vehicle else -1,
+                        quantmax=entry.get("quantmax", 80) if not is_vehicle else -1,
                         usage=entry.get("usage", "Town"),
                         value=entry.get("value", "Tier12"),
                         tier=entry.get("tier", 1),
@@ -753,6 +778,10 @@ class ModIntegrationTab:
                 options["event_max"] = entry.event_max
             else:
                 options["min"] = entry.min_count
+                options["lifetime"] = entry.lifetime
+                options["restock"] = entry.restock
+                options["quantmin"] = entry.quantmin
+                options["quantmax"] = entry.quantmax
                 options["usage"] = entry.usage
                 options["value"] = entry.value
                 options["tier"] = entry.tier
@@ -855,6 +884,10 @@ class ModIntegrationTab:
                     event_min=options.get("event_min", 1),
                     event_max=options.get("event_max", 1),
                     min_count=options.get("min"),
+                    lifetime=options.get("lifetime"),
+                    restock=options.get("restock"),
+                    quantmin=options.get("quantmin"),
+                    quantmax=options.get("quantmax"),
                 )
             except Exception as exc:  # pragma: no cover - defensive UI handling
                 result = None
@@ -910,7 +943,7 @@ class ModIntegrationTab:
     def _format_count_label(self, options: Dict[str, Any], is_vehicle: bool) -> str:
         if is_vehicle:
             return f"map={options.get('count', 1)} / evt {options.get('event_min', 1)}-{options.get('event_max', 1)}"
-        return f"nom={options.get('count', 10)} / min={options.get('min', 5)}"
+        return f"nom={options.get('count', 10)} / min={options.get('min', 5)} / lt={options.get('lifetime', 7200)}"
 
     def _format_loadout_notes(self, options: Dict[str, Any], is_vehicle: bool) -> str:
         parts: List[str] = []
@@ -920,6 +953,8 @@ class ModIntegrationTab:
             if options.get("value"):
                 parts.append(f"value={options['value']}")
             parts.append(f"tier={options.get('tier', 1)}")
+            parts.append(f"restock={options.get('restock', 0)}")
+            parts.append(f"quant={options.get('quantmin', 30)}-{options.get('quantmax', 80)}")
         locs = options.get("locations", [])
         if locs:
             parts.append(f"{len(locs)} exact pos")
@@ -995,6 +1030,10 @@ class ModIntegrationTab:
                     event_min=options.get("event_min", 1),
                     event_max=options.get("event_max", 1),
                     min_count=options.get("min"),
+                    lifetime=options.get("lifetime"),
+                    restock=options.get("restock"),
+                    quantmin=options.get("quantmin"),
+                    quantmax=options.get("quantmax"),
                 )
                 self._loadout_results.append(result)
                 if not result.success:
@@ -1140,6 +1179,10 @@ class ModIntegrationTab:
                 "source": source,
                 "spawn_count": options.get("count", 10),
                 "min_count": 0 if is_vehicle else options.get("min", 5),
+                "lifetime": options.get("lifetime", 7200) if not is_vehicle else 3888000,
+                "restock": options.get("restock", 0) if not is_vehicle else 1800,
+                "quantmin": options.get("quantmin", 30) if not is_vehicle else -1,
+                "quantmax": options.get("quantmax", 80) if not is_vehicle else -1,
                 "usage": options.get("usage", ""),
                 "value": options.get("value", ""),
                 "tier": options.get("tier", 1),

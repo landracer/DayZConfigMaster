@@ -33,6 +33,10 @@ class SpawnableEntry:
     source: str
     spawn_count: int = DEFAULT_SPAWN_COUNT
     min_count: int = 0
+    lifetime: int = 7200
+    restock: int = 0
+    quantmin: int = 30
+    quantmax: int = 80
     usage: str = "Town"
     value: str = "Tier12"
     tier: int = 1
@@ -47,6 +51,10 @@ class SpawnableEntry:
             "source": self.source,
             "spawn_count": self.spawn_count,
             "min_count": self.min_count,
+            "lifetime": self.lifetime,
+            "restock": self.restock,
+            "quantmin": self.quantmin,
+            "quantmax": self.quantmax,
             "usage": self.usage,
             "value": self.value,
             "tier": self.tier,
@@ -63,6 +71,10 @@ class SpawnableEntry:
             source=data.get("source", ""),
             spawn_count=data.get("spawn_count", DEFAULT_SPAWN_COUNT),
             min_count=data.get("min_count", 0),
+            lifetime=data.get("lifetime", 7200),
+            restock=data.get("restock", 0),
+            quantmin=data.get("quantmin", 30),
+            quantmax=data.get("quantmax", 80),
             usage=data.get("usage", "Town"),
             value=data.get("value", "Tier12"),
             tier=data.get("tier", 1),
@@ -224,6 +236,10 @@ class PerInstanceConfigManager:
                 event_min=entry.event_min if is_vehicle else 1,
                 event_max=entry.event_max if is_vehicle else 1,
                 min_count=0 if is_vehicle else entry.min_count,
+                lifetime=3888000 if is_vehicle else entry.lifetime,
+                restock=1800 if is_vehicle else entry.restock,
+                quantmin=-1 if is_vehicle else entry.quantmin,
+                quantmax=-1 if is_vehicle else entry.quantmax,
             )
             if result.ok:
                 messages.append(f"Enabled {entry.name} ({entry.category}) x{entry.spawn_count}")

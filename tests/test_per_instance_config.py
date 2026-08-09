@@ -161,8 +161,12 @@ def test_spawnable_entry_round_trip_vehicle_and_loot_counts() -> None:
         "Weapon Mod",
         spawn_count=25,
         min_count=12,
+        lifetime=14400,
+        restock=1800,
+        quantmin=50,
+        quantmax=90,
         usage="Military",
-        value="Tier34",
+        value="Tier3",
         tier=2,
     )
 
@@ -174,6 +178,10 @@ def test_spawnable_entry_round_trip_vehicle_and_loot_counts() -> None:
     assert "min_count" in vehicle_dict
 
     assert loot_dict["min_count"] == 12
+    assert loot_dict["lifetime"] == 14400
+    assert loot_dict["restock"] == 1800
+    assert loot_dict["quantmin"] == 50
+    assert loot_dict["quantmax"] == 90
     assert loot_dict["tier"] == 2
 
     restored_vehicle = SpawnableEntry.from_dict(vehicle_dict)
@@ -182,6 +190,10 @@ def test_spawnable_entry_round_trip_vehicle_and_loot_counts() -> None:
     assert restored_vehicle.event_min == 2
     assert restored_vehicle.event_max == 4
     assert restored_loot.min_count == 12
+    assert restored_loot.lifetime == 14400
+    assert restored_loot.restock == 1800
+    assert restored_loot.quantmin == 50
+    assert restored_loot.quantmax == 90
     assert restored_loot.tier == 2
 
 

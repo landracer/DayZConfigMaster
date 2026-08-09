@@ -122,6 +122,32 @@ A few mods ship files like `cfgspawnabletypes.xml` as a raw list of `<type>`
 blocks without a wrapping `<spawnabletypes>` tag. The integrator detects this
 and inserts the entries under the target file's root element automatically.
 
+### Spawn Loadout Queue
+
+The **Spawn Loadout** tab lets you build a queue of spawnables before applying
+them. Select a class, set the category-appropriate counts, and click **Add to
+Loadout**. When the queue is ready, click **Apply Loadout**.
+
+| Category | Controls |
+|----------|----------|
+| Vehicles / Air / Water | Map limit, Event min, Event max |
+| Weapons / Gear / Other | Nominal, Min, Lifetime, Restock, QuantMin, QuantMax, Usage, Value, Tier |
+
+You can save/load queues as JSON files or persist them per-instance with the
+**Save Loadout** / **Load Saved Loadout** buttons.
+
+### Why weapons/loot still do not spawn
+
+DayZ Central Economy reads the files declared in `cfgeconomycore.xml`. If that
+file has no `<ce>` section, DayZ defaults to `db/types.xml` and `db/events.xml`.
+Some maps also ship a broken root `types.xml` (at the mission root) with entries
+like `category="weapon"` and `usage="Town" value="Tier12"`. If that root file
+exists, it can override or conflict with the proper `db/types.xml`.
+
+DCM edits the file DayZ actually loads. If a broken root `types.xml` is
+present, remove or rename it so the server uses the clean `db/types.xml`, then
+wipe `storage_1/data/` and restart.
+
 ### Duplicate entries after manual edits
 
 Click **⏪ Restore Backups** to return to vanilla files, then re-apply

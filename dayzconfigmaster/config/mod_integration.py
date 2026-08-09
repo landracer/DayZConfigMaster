@@ -1770,6 +1770,9 @@ class ModIntegrationWorkflow:
         usage: Optional[str] = None,
         value: Optional[str] = None,
         lifetime: Optional[int] = None,
+        restock: Optional[int] = None,
+        quantmin: Optional[int] = None,
+        quantmax: Optional[int] = None,
         locations: Optional[List[Dict[str, float]]] = None,
         event_min: int = 1,
         event_max: int = 1,
@@ -1781,6 +1784,8 @@ class ModIntegrationWorkflow:
         vehicles/air/water, the ``<limit nominal>`` value in events.xml.
         *min_count* controls the ``<min>`` value in types.xml for non-vehicle
         spawnables (defaults to a quarter of *spawn_count*).
+        *lifetime*, *restock*, *quantmin* and *quantmax* control the matching
+        types.xml child elements for loot spawnables.
         *usage* and *value* control the building zones/tiers the item spawns
         in.  When omitted, sensible defaults are chosen based on *category*;
         vehicles/air/water receive no usage/value because they are spawned
@@ -1826,6 +1831,12 @@ class ModIntegrationWorkflow:
             value = "" if is_vehicle else "Tier12"
         if lifetime is None:
             lifetime = 3888000 if is_vehicle else 7200
+        if restock is None:
+            restock = 1800 if is_vehicle else 0
+        if quantmin is None:
+            quantmin = -1 if is_vehicle else 30
+        if quantmax is None:
+            quantmax = -1 if is_vehicle else 80
 
         if locations:
             # Exact-coordinate spawning: write a proper event + cfgeventspawns.xml.
@@ -1899,6 +1910,9 @@ class ModIntegrationWorkflow:
             min_count=types_min,
             category=types_category,
             lifetime=lifetime,
+            restock=restock,
+            quantmin=quantmin,
+            quantmax=quantmax,
             usage=usage,
             value=value,
         )
