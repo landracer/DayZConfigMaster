@@ -299,6 +299,47 @@ def test_workflow_rejects_vehicle_part():
         assert any(a.file_name == "validation" for a in result.actions)
 
 
+def test_enable_vehicle_spawning_uses_dayz_format():
+    """Regression: events.xml entries must use text content, not min/max attrs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "events.xml").write_text("<events></events>")
+        editor = XmlConfigEditor(root)
+
+        assert editor.enable_vehicle_spawning("OffroadHatchback", active=True)
+        text = (root / "events.xml").read_text()
+
+        assert "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" in text
+        assert "<nominal>1</nominal>" in text
+        assert "<active>1</active>" in text
+        assert 'type="OffroadHatchback"' in text
+        # Old malformed format must not be present.
+        assert "<nominal min=" not in text
+        assert "<active min=" not in text
+
+
+def test_define_spawnable_type_preserves_non_attachment_tags():
+    """Regression: re-defining a type must not wipe <hoarder/> or <damage/>."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "cfgspawnabletypes.xml").write_text(
+            "<spawnabletypes>"
+            '<type name="CarTent"><hoarder /></type>'
+            '<type name="NVGoggles"><damage min="0.0" max="0.32" /></type>'
+            "</spawnabletypes>"
+        )
+        editor = XmlConfigEditor(root)
+
+        assert editor.define_spawnable_type("CarTent", [("HatchbackWheel", 1.0)])
+        assert editor.define_spawnable_type("NVGoggles", chance=0.5)
+
+        text = (root / "cfgspawnabletypes.xml").read_text()
+        assert "<hoarder" in text
+        assert '<damage min="0.0" max="0.32"' in text
+        assert "HatchbackWheel" in text
+        assert 'value="0.50"' in text
+
+
 def test_workflow_uses_mod_wheel_template():
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)

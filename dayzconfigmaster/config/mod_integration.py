@@ -1134,6 +1134,19 @@ def _indent_xml(elem: ET.Element, level: int = 0) -> None:
             elem.tail = i
 
 
+def _serialize_et(root: ET.Element) -> str:
+    """Serialize an ElementTree element to a DayZ-style XML string.
+
+    Uses 4-space indentation and a double-quoted UTF-8 declaration with
+    ``standalone="yes"`` to match stock DayZ mission files.
+    """
+    # Indent in-place; callers already pass a tree that is about to be saved.
+    ET.indent(root, space="    ")
+    body = ET.tostring(root, encoding="unicode")
+    # ET.tostring does not include the XML declaration.
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + body
+
+
 class XmlConfigEditor:
     """Edit core DayZ server XML configuration files."""
 
@@ -1209,12 +1222,10 @@ class XmlConfigEditor:
         if path is None:
             return False
         try:
-            _indent_xml(root)
-            tree = ET.ElementTree(root)
             backup = _backup_path(path)
             if path.exists():
                 shutil.copy2(path, backup)
-            tree.write(path, encoding="utf-8", xml_declaration=True)
+            path.write_text(_serialize_et(root), encoding="utf-8")
             return True
         except OSError:
             return False
@@ -1243,9 +1254,13 @@ class XmlConfigEditor:
     ) -> bool:
         """Enable or disable a vehicle event in events.xml.
 
+        Generates a DayZ-compliant ``<event>`` block with text content for
+        numeric fields instead of the malformed ``min/max`` attributes the
+        previous implementation produced.
+
         *limit_nominal* controls how many of this vehicle can be present on
         the map at once through the event system.  It maps to the
-        `<limit nominal="...">` attribute inside the event definition.
+        ``<limit nominal="...">`` attribute inside the event definition.
         """
         root = self._load_or_create("events.xml")
         if root is None:
@@ -1253,32 +1268,41 @@ class XmlConfigEditor:
         event = self._find_event(root, vehicle_class_name)
         if event is None:
             event = ET.SubElement(root, "event", {"name": vehicle_class_name})
-            ET.SubElement(event, "nominal", {"min": "1", "max": "1"})
-            ET.SubElement(event, "min", {"min": "1", "max": "1"})
-            ET.SubElement(event, "max", {"min": "1", "max": "1"})
-            ET.SubElement(event, "lifetime", {"min": "1", "max": "1"})
-            ET.SubElement(event, "restock", {"min": "0", "max": "0"})
-            ET.SubElement(event, "saferadius", {"min": "0", "max": "0"})
-            ET.SubElement(event, "distanceradius", {"min": "0", "max": "0"})
-            ET.SubElement(event, "spawnoffset", {"min": "0", "max": "0"})
-            ET.SubElement(event, "spawnrange", {"min": "0", "max": "0"})
-            ET.SubElement(event, "countoffset", {"min": "0", "max": "0"})
-            ET.SubElement(event, "flags", {"deletable": "0", "init_random_spawn": "0"})
-            ET.SubElement(event, "position", {"fixed": "0"})
+            ET.SubElement(event, "nominal").text = "1"
+            ET.SubElement(event, "min").text = "1"
+            ET.SubElement(event, "max").text = "1"
+            ET.SubElement(event, "lifetime").text = "1"
+            ET.SubElement(event, "restock").text = "0"
+            ET.SubElement(event, "saferadius").text = "0"
+            ET.SubElement(event, "distanceradius").text = "0"
+            ET.SubElement(event, "cleanupradius").text = "0"
+            ET.SubElement(event, "spawnoffset").text = "0"
+            ET.SubElement(event, "spawnrange").text = "0"
+            ET.SubElement(event, "countoffset").text = "0"
+            ET.SubElement(event, "flags", {"deletable": "0", "init_random": "0", "remove_damaged": "0"})
+            ET.SubElement(event, "position").text = "fixed"
             ET.SubElement(event, "limit", {"mixed": "0", "nominal": str(limit_nominal)})
-            ET.SubElement(event, "active", {"min": "1", "max": "1"})
-            ET.SubElement(event, "children")
+            ET.SubElement(event, "active").text = "1"
+            children = ET.SubElement(event, "children")
+            ET.SubElement(
+                children,
+                "child",
+                {
+                    "lootmax": "0",
+                    "lootmin": "0",
+                    "max": "1",
+                    "min": "0",
+                    "type": vehicle_class_name,
+                },
+            )
         else:
             limit_elem = event.find("limit")
             if limit_elem is not None:
                 limit_elem.set("nominal", str(limit_nominal))
         active_elem = event.find("active")
         if active_elem is None:
-            active_elem = ET.SubElement(event, "active", {"min": "1", "max": "1"})
-        min_v = "1" if active else "0"
-        max_v = "1" if active else "0"
-        active_elem.set("min", min_v)
-        active_elem.set("max", max_v)
+            active_elem = ET.SubElement(event, "active")
+        active_elem.text = "1" if active else "0"
         return self._save("events.xml", root)
 
     def add_event_with_positions(
@@ -1368,6 +1392,10 @@ class XmlConfigEditor:
         active = event.find("active")
         if active is None:
             return None
+        text = (active.text or "").strip()
+        if text in ("0", "1"):
+            return text == "1"
+        # Backwards compatibility with the old malformed min/max attributes.
         return active.get("min") == "1" or active.get("max") == "1"
 
     # ------------------------------------------------------------------
@@ -1386,7 +1414,12 @@ class XmlConfigEditor:
         attachments: Optional[List[Tuple[str, float]]] = None,
         chance: float = 1.0,
     ) -> bool:
-        """Define or update a spawnable type with optional attachments."""
+        """Define or update a spawnable type with optional attachments.
+
+        Only ``<attachments>`` children are replaced; other tags such as
+        ``<hoarder/>`` or ``<damage/>`` are preserved so the rewrite does
+        not orphan existing spawnable-type configuration.
+        """
         root = self._load_or_create("cfgspawnabletypes.xml")
         if root is None:
             return False
@@ -1394,8 +1427,9 @@ class XmlConfigEditor:
         if type_elem is None:
             type_elem = ET.SubElement(root, "type", {"name": vehicle_class_name})
         else:
-            # Clear existing attachments so we can recreate them deterministically.
-            for child in list(type_elem):
+            # Replace only attachment definitions so we don't wipe unrelated
+            # tags like <hoarder/>, <damage/>, <cargo/>, etc.
+            for child in list(type_elem.findall("attachments")):
                 type_elem.remove(child)
 
         if attachments:
@@ -1407,6 +1441,9 @@ class XmlConfigEditor:
                 )
                 ET.SubElement(att, "item", {"name": item_name, "chance": "1.00"})
         if chance < 1.0:
+            # Remove any existing chance value before adding a new one.
+            for existing in list(type_elem.findall("chance")):
+                type_elem.remove(existing)
             ET.SubElement(type_elem, "chance", {"value": f"{chance:.2f}"})
         return self._save("cfgspawnabletypes.xml", root)
 

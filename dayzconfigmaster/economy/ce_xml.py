@@ -169,10 +169,17 @@ class XElement(XNode):
 class XDoc(XNode):
     """Represents an XML document with root element."""
     
-    def __init__(self, root: Optional[XElement] = None, version: str = "1.0", encoding: str = "UTF-8"):
+    def __init__(
+        self,
+        root: Optional[XElement] = None,
+        version: str = "1.0",
+        encoding: str = "UTF-8",
+        standalone: Optional[str] = None,
+    ):
         self.root = root
         self.version = version
         self.encoding = encoding
+        self.standalone = standalone
     
     @staticmethod
     def create(root_tag: str) -> 'XDoc':
@@ -192,7 +199,17 @@ class XDoc(XNode):
         """
         try:
             root = ET.fromstring(xml_str)
-            return XDoc(XElement._from_etree(root))
+            xdoc = XDoc(XElement._from_etree(root))
+            # Extract declaration values from the original XML string so we can
+            # preserve them when serialising.
+            match = re.search(r'<\?xml\s+([^?]+)\?>', xml_str, re.DOTALL)
+            if match:
+                decl = match.group(1)
+                for key in ("version", "encoding", "standalone"):
+                    m = re.search(rf'{key}\s*=\s*["\']([^"\']+)["\']', decl)
+                    if m:
+                        setattr(xdoc, key, m.group(1))
+            return xdoc
         except ET.ParseError:
             return None
     
@@ -254,79 +271,95 @@ class CeXml:
     @staticmethod
     def serialize(doc: XDoc) -> str:
         """
-        Convert an XDoc back to an XML string.
-        
-        Args:
-            doc: The document to serialize
-            
-        Returns:
-            XML string representation
+        Convert an XDoc back to a DayZ-compatible XML string.
+
+        Output matches the standard DayZ mission XML style:
+        - ``<?xml version="1.0" encoding="UTF-8" standalone="yes"?>``
+        - 4-space indentation
+        - Text-only elements on a single line (``<nominal>9</nominal>``)
+        - Empty elements self-closed (``<usage name="Military"/>``)
         """
-        lines = []
-        
+        lines: List[str] = []
+
         # XML declaration
-        if doc.version and doc.encoding:
-            lines.append(f'<?xml version="{doc.version}" encoding="{doc.encoding}"?>')
-        
+        version = doc.version or "1.0"
+        encoding = doc.encoding or "UTF-8"
+        decl = f'<?xml version="{version}" encoding="{encoding}"'
+        if doc.standalone:
+            decl += f' standalone="{doc.standalone}"'
+        decl += "?>"
+        lines.append(decl)
+
         # Serialize root element
         if doc.root:
             lines.append(CeXml._serialize_element(doc.root, 0))
-        
-        return '\n'.join(lines)
-    
+
+        return "\n".join(lines)
+
+    @staticmethod
+    def _escape_attr(value: str) -> str:
+        """Escape attribute value for XML."""
+        return (
+            str(value)
+            .replace("&", "&amp;")
+            .replace('"', "&quot;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+
+    @staticmethod
+    def _escape_text(value: str) -> str:
+        """Escape text content for XML."""
+        return str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
     @staticmethod
     def _serialize_element(elem: XElement, indent_level: int) -> str:
-        """Serialize an XElement to a string with proper indentation."""
-        indent = '    ' * indent_level
-        
+        """Serialize an XElement to a string with DayZ-style indentation."""
+        indent = "    " * indent_level
+        child_indent = "    " * (indent_level + 1)
+
         # Build attributes string
-        attr_parts = []
+        attr_parts: List[str] = []
         for name, value in elem.attributes.items():
             if value is None:
-                attr_parts.append(f'{name}')
+                attr_parts.append(f"{name}")
             else:
-                escaped_value = str(value).replace('&', '&').replace('<', '<').replace('>', '>')
-                attr_parts.append(f'{name}="{escaped_value}"')
-        
-        attrs_str = ' '.join(attr_parts)
-        
-        # Check if element has content
-        has_text = elem.text is not None and elem.text.strip()
+                attr_parts.append(f'{name}="{CeXml._escape_attr(value)}"')
+
+        attrs_str = " ".join(attr_parts)
+
+        # Determine content
+        text = elem.text.strip() if elem.text and elem.text.strip() else ""
         has_children = len(elem.children) > 0
-        
-        if not has_text and not has_children:
-            # Empty element - self-closing
-            if attrs_str:
-                return f'{indent}<{elem.tag} {attrs_str}/>'
-            else:
-                return f'{indent}<{elem.tag}/>'
-        
-        # Start tag with attributes
-        start_tag = f'<{elem.tag}'
+
+        # Start tag
         if attrs_str:
-            start_tag += f' {attrs_str}'
-        start_tag += '>'
-        
-        # Build content
-        parts = [start_tag]
-        
-        if has_text and not has_children:
-            # Text-only element
-            escaped_text = elem.text.replace('&', '&').replace('<', '<')
-            parts.append(escaped_text)
-        elif has_children:
-            # Has children - serialize each child
-            for child in elem.children:
-                parts.append(CeXml._serialize_element(child, indent_level + 1))
-            
-            if has_text and elem.text.strip():
-                escaped_text = elem.text.replace('&', '&').replace('<', '<')
-                parts.insert(1, f'{indent}    {escaped_text}')
-        
-        # End tag
-        parts.append(f'{indent}</{elem.tag}>')
-        
-        return '\n'.join(parts)
+            start_tag = f"<{elem.tag} {attrs_str}>"
+            self_closing = f"<{elem.tag} {attrs_str}/>"
+        else:
+            start_tag = f"<{elem.tag}>"
+            self_closing = f"<{elem.tag}/>"
+
+        # Empty element
+        if not text and not has_children:
+            return f"{indent}{self_closing}"
+
+        # Text-only element (e.g. <nominal>9</nominal>)
+        if text and not has_children:
+            return f"{indent}{start_tag}{CeXml._escape_text(text)}</{elem.tag}>"
+
+        # Element with children
+        lines: List[str] = [f"{indent}{start_tag}"]
+
+        # Optional mixed text before children
+        if text:
+            lines.append(f"{child_indent}{CeXml._escape_text(text)}")
+
+        for child in elem.children:
+            lines.append(CeXml._serialize_element(child, indent_level + 1))
+
+        lines.append(f"{indent}</{elem.tag}>")
+        return "\n".join(lines)
     
     @staticmethod
     def by_name(
