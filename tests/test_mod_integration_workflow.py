@@ -318,6 +318,34 @@ def test_enable_vehicle_spawning_uses_dayz_format():
         assert "<active min=" not in text
 
 
+def test_editor_prefers_db_economy_files():
+    """XmlConfigEditor must edit db/types.xml and db/events.xml when present."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        db = root / "db"
+        db.mkdir()
+        (db / "types.xml").write_text("<types></types>")
+        (db / "events.xml").write_text("<events></events>")
+        (root / "cfgspawnabletypes.xml").write_text("<spawnabletypes></spawnabletypes>")
+
+        editor = XmlConfigEditor(root)
+        assert editor.path_for("types.xml") == db / "types.xml"
+        assert editor.path_for("events.xml") == db / "events.xml"
+        assert editor.path_for("cfgspawnabletypes.xml") == root / "cfgspawnabletypes.xml"
+
+        # Applying a vehicle should write to db/ files, not create root files.
+        workflow = ModIntegrationWorkflow(root)
+        result = workflow.integrate_vehicle_mod("OffroadHatchback", spawn_count=5)
+        assert result.ok
+        assert not (root / "types.xml").exists()
+        assert not (root / "events.xml").exists()
+        db_types_text = (db / "types.xml").read_text()
+        db_events_text = (db / "events.xml").read_text()
+        assert "<nominal>0</nominal>" in db_types_text
+        assert "OffroadHatchback" in db_events_text
+        assert 'nominal="5"' in db_events_text
+
+
 def test_define_spawnable_type_preserves_non_attachment_tags():
     """Regression: re-defining a type must not wipe <hoarder/> or <damage/>."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -476,7 +504,9 @@ def test_integrate_aircraft_writes_events_and_types():
         assert "LittleBird_Heli" in events_text
         assert 'nominal="5"' in events_text
         types_text = (root / "types.xml").read_text()
-        assert "<nominal>5</nominal>" in types_text
+        # Aircraft are event-spawned: types.xml nominal must be 0.
+        assert "<nominal>0</nominal>" in types_text
+        assert "<min>0</min>" in types_text
         assert "<lifetime>3888000</lifetime>" in types_text
         assert 'usage name=' not in types_text
         assert 'value name=' not in types_text
@@ -496,10 +526,15 @@ def test_integrate_vehicle_no_usage_or_value_by_default():
         assert result.ok
 
         types_text = (root / "types.xml").read_text()
-        assert "<nominal>8</nominal>" in types_text
+        # Vehicles are event-spawned: types.xml nominal must be 0.
+        assert "<nominal>0</nominal>" in types_text
+        assert "<min>0</min>" in types_text
         assert "<lifetime>3888000</lifetime>" in types_text
         assert 'usage name=' not in types_text
         assert 'value name=' not in types_text
+
+        events_text = (root / "events.xml").read_text()
+        assert 'nominal="8"' in events_text
 
 
 def test_integrate_watercraft_no_usage_or_value_by_default():
@@ -516,7 +551,9 @@ def test_integrate_watercraft_no_usage_or_value_by_default():
         assert result.ok
 
         types_text = (root / "types.xml").read_text()
-        assert "<nominal>3</nominal>" in types_text
+        # Watercraft are event-spawned: types.xml nominal must be 0.
+        assert "<nominal>0</nominal>" in types_text
+        assert "<min>0</min>" in types_text
         assert 'usage name=' not in types_text
         assert 'value name=' not in types_text
 

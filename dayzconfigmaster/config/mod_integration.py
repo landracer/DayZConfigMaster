@@ -1152,11 +1152,34 @@ class XmlConfigEditor:
 
     supported_files = list(SUPPORTED_FILES)
 
+    # DayZ missions normally keep types.xml and events.xml under db/.
+    # Older/simplified mission layouts keep them at the mission root.
+    # cfgspawnabletypes.xml and cfgeventspawns.xml are always at root.
+    _DB_FILES = {"types.xml", "events.xml"}
+
     def __init__(self, mission_root: Path):
         self.mission_root = Path(mission_root)
         self._paths: Dict[str, Path] = {
-            name: self.mission_root / name for name in SUPPORTED_FILES
+            name: self._resolve_path(self.mission_root, name) for name in SUPPORTED_FILES
         }
+
+    @staticmethod
+    def _resolve_path(mission_root: Path, name: str) -> Path:
+        """Return the concrete path to use for *name*.
+
+        For types.xml and events.xml, prefer ``db/<file>`` when it exists or
+        when the root file does not exist. This matches DayZ's default CE
+        layout and fixes maps that ship without root economy files.
+        """
+        root_path = mission_root / name
+        db_files = XmlConfigEditor._DB_FILES
+        if name not in db_files:
+            return root_path
+        db_path = mission_root / "db" / name
+        # Prefer db/ if it exists or if root does not exist.
+        if db_path.exists() or not root_path.exists():
+            return db_path
+        return root_path
 
     def path_for(self, name: str) -> Optional[Path]:
         """Return the on-disk path for a supported XML file."""
@@ -1251,6 +1274,9 @@ class XmlConfigEditor:
         vehicle_class_name: str,
         active: bool = True,
         limit_nominal: int = 10,
+        event_nominal: int = 1,
+        event_min: int = 1,
+        event_max: int = 1,
     ) -> bool:
         """Enable or disable a vehicle event in events.xml.
 
@@ -1261,6 +1287,9 @@ class XmlConfigEditor:
         *limit_nominal* controls how many of this vehicle can be present on
         the map at once through the event system.  It maps to the
         ``<limit nominal="...">`` attribute inside the event definition.
+
+        *event_nominal*, *event_min* and *event_max* control how many event
+        spawn points are active at the same time.
         """
         root = self._load_or_create("events.xml")
         if root is None:
@@ -1268,9 +1297,9 @@ class XmlConfigEditor:
         event = self._find_event(root, vehicle_class_name)
         if event is None:
             event = ET.SubElement(root, "event", {"name": vehicle_class_name})
-            ET.SubElement(event, "nominal").text = "1"
-            ET.SubElement(event, "min").text = "1"
-            ET.SubElement(event, "max").text = "1"
+            ET.SubElement(event, "nominal").text = str(event_nominal)
+            ET.SubElement(event, "min").text = str(event_min)
+            ET.SubElement(event, "max").text = str(event_max)
             ET.SubElement(event, "lifetime").text = "1"
             ET.SubElement(event, "restock").text = "0"
             ET.SubElement(event, "saferadius").text = "0"
@@ -1296,6 +1325,15 @@ class XmlConfigEditor:
                 },
             )
         else:
+            nominal_elem = event.find("nominal")
+            if nominal_elem is not None:
+                nominal_elem.text = str(event_nominal)
+            min_elem = event.find("min")
+            if min_elem is not None:
+                min_elem.text = str(event_min)
+            max_elem = event.find("max")
+            if max_elem is not None:
+                max_elem.text = str(event_max)
             limit_elem = event.find("limit")
             if limit_elem is not None:
                 limit_elem.set("nominal", str(limit_nominal))
@@ -1733,6 +1771,8 @@ class ModIntegrationWorkflow:
         value: Optional[str] = None,
         lifetime: Optional[int] = None,
         locations: Optional[List[Dict[str, float]]] = None,
+        event_min: int = 1,
+        event_max: int = 1,
     ) -> IntegrationResult:
         """Apply XML changes needed to enable a spawnable mod class.
 
@@ -1802,7 +1842,12 @@ class ModIntegrationWorkflow:
             add_action("events.xml", ok, f"Add coordinate event {event_name}")
         elif is_vehicle:
             ok = self.editor.enable_vehicle_spawning(
-                class_name, active=True, limit_nominal=spawn_count
+                class_name,
+                active=True,
+                limit_nominal=spawn_count,
+                event_nominal=max(1, (event_min + event_max) // 2),
+                event_min=event_min,
+                event_max=event_max,
             )
             add_action("events.xml", ok, f"Enable event spawning for {class_name}")
         else:
@@ -1833,10 +1878,19 @@ class ModIntegrationWorkflow:
             add_action("cfgspawnabletypes.xml", True, f"No attachments needed for {class_name}")
 
         types_category = "vehicle" if is_vehicle else category
+        # Event-spawned vehicles (vehicle/air/water) must have nominal=0 in
+        # types.xml so Central Economy does not dynamically spawn them as loot.
+        # Only non-vehicle spawnables use the requested count in types.xml.
+        if is_vehicle:
+            types_nominal = 0
+            types_min = 0
+        else:
+            types_nominal = spawn_count
+            types_min = max(1, spawn_count // 4)
         ok = self.editor.add_vehicle_to_types_xml(
             class_name,
-            nominal=spawn_count,
-            min_count=max(1, spawn_count // 4),
+            nominal=types_nominal,
+            min_count=types_min,
             category=types_category,
             lifetime=lifetime,
             usage=usage,
