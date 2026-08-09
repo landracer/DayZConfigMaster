@@ -566,3 +566,55 @@ def test_repair_vehicle_spawn_usages(tmp_path: Path):
     assert content.count('usage name="Town"') == 1
     assert result.backup_path is not None
     assert result.backup_path.exists()
+
+
+def test_repair_vehicle_spawn_usages_fixes_gear_categorised_mod_vehicles(
+    tmp_path: Path,
+):
+    """Mod vehicles written as category=gear + usage=Town are re-categorised."""
+    types_path = tmp_path / "types.xml"
+    types_path.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n<types>\n'
+        '    <type name="Jeep_GladiatorF9_BOSS_camo_blue">\n'
+        '        <nominal>1</nominal>\n'
+        '        <lifetime>7200</lifetime>\n'
+        '        <restock>1800</restock>\n'
+        '        <min>1</min>\n'
+        '        <category name="gear"/>\n'
+        '        <usage name="Town"/>\n'
+        '        <value name="Tier12"/>\n'
+        '    </type>\n'
+        '    <type name="ToyotaRunner_black">\n'
+        '        <nominal>1</nominal>\n'
+        '        <lifetime>7200</lifetime>\n'
+        '        <restock>1800</restock>\n'
+        '        <min>1</min>\n'
+        '        <category name="gear"/>\n'
+        '        <usage name="Town"/>\n'
+        '    </type>\n'
+        '    <type name="CivilianTent">\n'
+        '        <nominal>10</nominal>\n'
+        '        <lifetime>7200</lifetime>\n'
+        '        <category name="gear"/>\n'
+        '        <usage name="Town"/>\n'
+        '    </type>\n'
+        '</types>\n',
+        encoding="utf-8",
+    )
+
+    result = repair_vehicle_spawn_usages(types_path)
+
+    assert result.success
+    assert result.repaired_count == 2
+    assert "Jeep_GladiatorF9_BOSS_camo_blue" in result.repaired
+    assert "ToyotaRunner_black" in result.repaired
+    assert "CivilianTent" not in result.repaired
+
+    content = types_path.read_text(encoding="utf-8")
+    assert '<category name="vehicle"' in content
+    assert '<category name="gear"' in content  # CivilianTent stays gear
+    assert "Jeep_GladiatorF9_BOSS_camo_blue" in content
+    assert "ToyotaRunner_black" in content
+    # Civilian tent is legitimate gear+Town and must remain untouched.
+    assert "CivilianTent" in content
+    assert content.count('usage name="Town"') == 1

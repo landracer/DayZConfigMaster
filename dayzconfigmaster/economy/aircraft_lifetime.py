@@ -844,6 +844,29 @@ class VehicleSpawnRepairResult:
         return len(self.repaired)
 
 
+# Substrings used to detect mod vehicle classnames that were incorrectly
+# categorised as gear with Town usage by older versions of the spawn generator.
+_VEHICLE_NAME_HINTS = (
+    "jeep", "ford", "bronco", "toyota", "runner", "dodge", "ram", "charger",
+    "challenger", "mustang", "audi", "bmw", "porsche", "nissan", "skyline",
+    "gtr", "supra", "tahoe", "mitsubishi", "evo", "honda", "crf", "croco",
+    "civic", "chevrolet", "napalm", "gmc", "gladiator", "motorhome",
+    "transit", "mbm", "jmc", "stag", "kamaz", "typhoon", "atv", "quad",
+    "bike", "bicycle", "boat", "heli", "harrier", "a10", "catalina",
+    "cessna", "dc_3", "l39", "mh6", "patty", "spitfire", "stuntplane",
+    "su25", "tigermoth", "z37", "bumblebee", "ultralight", "mosquito",
+    "apache", "as350", "bell", "blackhawk", "bo105", "ec135", "ka26",
+    "littlebird", "mi2", "r22", "s76", "uh1h", "wagon", "van", "truck",
+    "bus", "car", "kart", "motorcycle", "scooter"
+)
+
+
+def _looks_like_vehicle(name: str) -> bool:
+    """Return True if *name* strongly resembles a vehicle classname."""
+    lower = name.lower()
+    return any(hint in lower for hint in _VEHICLE_NAME_HINTS)
+
+
 def repair_vehicle_spawn_usages(
     types_path: Path,
     max_lifetime: int = MAX_VEHICLE_LIFETIME,
@@ -859,6 +882,8 @@ def repair_vehicle_spawn_usages(
     * Removes bogus ``vehicle`` entries that have ``Town`` usage and are not
       aircraft (cars, boats, parts, wrecks that were promoted to dynamic
       spawns).
+    * Re-categorises mod vehicles that were written as ``category="gear"`` +
+      ``usage="Town"`` back to ``category="vehicle"`` with no usage.
 
     Args:
         types_path: Path to the ``types.xml`` file to repair.
@@ -919,6 +944,27 @@ def repair_vehicle_spawn_usages(
                 # Real vehicles and aircraft use event spawning, not Town.
                 _strip_town()
                 repaired.append(entry.name)
+        elif "gear" in categories and _looks_like_vehicle(entry.name):
+            # Older spawn generator wrote mod vehicles as gear+Town.
+            # Re-categorise as vehicle and remove all loot usages/values.
+            entry.categories = [
+                cat for cat in entry.categories
+                if cat.name.lower() != "gear"
+            ]
+            if not any(cat.name.lower() == "vehicle" for cat in entry.categories):
+                from .types_xml import Category
+                entry.categories.append(Category("vehicle"))
+            entry.usages = [
+                use for use in entry.usages
+                if use.name.lower() != "town"
+            ]
+            entry.values = []
+            # Event-spawned vehicles should have nominal/min=0 in types.xml.
+            entry.nominal = 0
+            entry.min = 0
+            entry.lifetime = max_lifetime
+            xml.set_type(entry)
+            repaired.append(entry.name)
 
     if not removed and not repaired:
         return VehicleSpawnRepairResult(
