@@ -226,12 +226,15 @@ class PerInstanceConfigManager:
 
         for entry in loadout.enabled:
             is_vehicle = entry.category in ("vehicle", "air", "water")
+            # Vehicles/air/water are spawned by events.xml and must never be
+            # tagged with loot usage/value.  Pass None so the integration
+            # workflow uses safe empty defaults for those categories.
             result = workflow.integrate_spawnable_mod(
                 entry.name,
                 spawn_count=entry.spawn_count,
                 category=entry.category,
-                usage=entry.usage,
-                value=entry.value,
+                usage=None if is_vehicle else entry.usage,
+                value=None if is_vehicle else entry.value,
                 locations=entry.locations,
                 event_min=entry.event_min if is_vehicle else 1,
                 event_max=entry.event_max if is_vehicle else 1,

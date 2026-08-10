@@ -481,6 +481,32 @@ def _is_likely_vehicle_part(name: str) -> bool:
     return lower.endswith("_wheel")
 
 
+def _is_likely_static_wreck(name: str) -> bool:
+    """Return True if *name* is a static wreck or scenery object.
+
+    These classes exist in types.xml with ``nominal=0`` and ``lifetime=0``
+    because they are map-placed objects, not spawnable loot or drivable
+    vehicles.  Treating them as spawnables causes them to appear inside
+    buildings when tagged with ``usage="Town"`` / ``value="Tier12"``.
+    """
+    lower = name.lower()
+    wreck_prefixes = (
+        "land_wreck_",
+        "staticobj_wreck_",
+        "static_",
+        "wreck_",
+    )
+    if any(lower.startswith(p) for p in wreck_prefixes):
+        return True
+    # Abandoned / destroyed vehicle suffixes commonly used for static objects.
+    if "_aban" in lower or "_destroyed" in lower or "_debris" in lower:
+        return True
+    # Animal and zombie classes are not spawnable loot.
+    if lower.startswith("animal_") or lower.startswith("zmb"):
+        return True
+    return False
+
+
 def _filter_vehicle_candidates(names: List[str]) -> List[str]:
     """Remove obvious vehicle parts from a list of candidate class names."""
     return [n for n in names if not _is_likely_vehicle_part(n)]
@@ -1723,6 +1749,14 @@ class ModIntegrationWorkflow:
             ))
             return actions
 
+        if _is_likely_static_wreck(class_name):
+            actions.append(IntegrationAction(
+                "validation",
+                f"{class_name} is a static wreck or scenery object and cannot be "
+                "enabled as a spawnable.",
+            ))
+            return actions
+
         is_vehicle = category in ("vehicle", "air", "water")
 
         if is_vehicle:
@@ -1812,6 +1846,20 @@ class ModIntegrationWorkflow:
                 backup_dir=self.editor.mission_root / "backups" / "integration",
             )
 
+        if _is_likely_static_wreck(class_name):
+            actions.append(IntegrationAction(
+                "validation",
+                f"{class_name} is a static wreck or scenery object and cannot be "
+                "enabled as a spawnable.",
+                applied=False,
+                error="Static wreck selected",
+            ))
+            return IntegrationResult(
+                success=False,
+                actions=actions,
+                backup_dir=self.editor.mission_root / "backups" / "integration",
+            )
+
         def add_action(name: str, ok: bool, description: str, error: str = "") -> None:
             actions.append(IntegrationAction(
                 name, description, applied=ok, error="" if ok else (error or "Failed to apply change"),
@@ -1819,15 +1867,17 @@ class ModIntegrationWorkflow:
 
         is_vehicle = category in ("vehicle", "air", "water")
 
-        # Choose safe defaults when the caller does not specify them.
-        if usage is None:
-            if is_vehicle:
-                usage = ""
-            elif category == "weapon":
+        # Vehicles/air/water are event-spawned and must never carry loot
+        # usage/value tags.  Force them blank even if the caller passed a value.
+        if is_vehicle:
+            usage = ""
+            value = ""
+        elif usage is None:
+            if category == "weapon":
                 usage = "Military"
             else:
                 usage = "Town"
-        if value is None:
+        if value is None or is_vehicle:
             value = "" if is_vehicle else "Tier12"
         if lifetime is None:
             lifetime = 3888000 if is_vehicle else 7200

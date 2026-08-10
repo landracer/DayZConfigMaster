@@ -146,6 +146,53 @@ def test_apply_spawn_loadout_passes_usage_value_locations(instance_root: Path) -
     assert "200.0" in spawns_text
 
 
+def test_apply_spawn_loadout_vehicle_does_not_get_loot_usage_value(instance_root: Path) -> None:
+    """Vehicles/air/water must never receive usage/value tags."""
+    mission = instance_root / "mpmissions" / "dayzOffline.alteria"
+    mission.mkdir(parents=True)
+    (mission / "types.xml").write_text("<types></types>")
+    (mission / "events.xml").write_text("<events></events>")
+    (mission / "cfgspawnabletypes.xml").write_text("<spawnabletypes></spawnabletypes>")
+
+    mgr = PerInstanceConfigManager(instance_root)
+    loadout = InstanceSpawnLoadout()
+    # The entry defaults carry Town/Tier12; the manager must not pass them
+    # through for vehicle categories.
+    entry = SpawnableEntry("TestTruck", "vehicle", "Test Mod", 8)
+    assert entry.usage == "Town"
+    assert entry.value == "Tier12"
+    loadout.enabled.append(entry)
+    mgr.save_spawn_loadout(loadout)
+
+    ok, messages = mgr.apply_spawn_loadout(mission, None)
+    assert ok is True, messages
+
+    types_text = (mission / "types.xml").read_text()
+    assert "TestTruck" in types_text
+    assert 'usage name="Town"' not in types_text
+    assert 'value name="Tier12"' not in types_text
+
+
+def test_apply_spawn_loadout_static_wreck_rejected(instance_root: Path) -> None:
+    """Static wreck/scenery classes must be refused."""
+    mission = instance_root / "mpmissions" / "dayzOffline.alteria"
+    mission.mkdir(parents=True)
+    (mission / "types.xml").write_text("<types></types>")
+    (mission / "events.xml").write_text("<events></events>")
+    (mission / "cfgspawnabletypes.xml").write_text("<spawnabletypes></spawnabletypes>")
+
+    mgr = PerInstanceConfigManager(instance_root)
+    loadout = InstanceSpawnLoadout()
+    loadout.enabled.append(
+        SpawnableEntry("Land_wreck_truck01_aban2_green_DE", "vehicle", "Mission", 10)
+    )
+    mgr.save_spawn_loadout(loadout)
+
+    ok, messages = mgr.apply_spawn_loadout(mission, None)
+    assert ok is False
+    assert any("Static wreck" in m or "wreck" in m.lower() for m in messages)
+
+
 def test_spawnable_entry_round_trip_vehicle_and_loot_counts() -> None:
     vehicle = SpawnableEntry(
         "LittleBird_Heli",
