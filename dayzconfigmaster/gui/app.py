@@ -18,6 +18,7 @@ import re
 import shutil
 import socket
 import time
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Tuple, Set
 
@@ -6504,6 +6505,14 @@ Requirements:
                 if mission_msg.startswith("ERROR"):
                     return None, mission_msg
                 if mission_target:
+                    sanitize_msg = self._sanitize_mission_economy_files(
+                        instance_root, mission_target
+                    )
+                    self.log_text.insert(
+                        tk.END,
+                        f"[{self._get_timestamp()}] Instance {instance_id} "
+                        f"economy sanitize: {sanitize_msg}\n",
+                    )
                     lifetime_msg = self._normalize_aircraft_lifetimes(
                         instance_root, mission_target
                     )
@@ -7063,6 +7072,76 @@ Requirements:
             msg_parts.append("; ".join(messages))
 
         return " ".join(msg_parts)
+
+    def _sanitize_mission_economy_files(
+        self,
+        instance_root: Path,
+        target_name: str,
+    ) -> str:
+        """Remove known-corrupt economy files that survive mission deployment.
+
+        Older DCM builds and broken spawn generators wrote a mission-root
+        ``types.xml`` with singular categories (``category="weapon"``,
+        ``category="vehicle"``, ``category="gear"``). DayZ's default CE
+        loader ignores root ``types.xml`` when ``cfgeconomycore.xml`` has no
+        ``<ce>`` section for it, but ``ensure_aircraft_types_in_db`` merges
+        entries from that file into ``db/types.xml``, which re-introduces
+        bogus vehicle/wreck spawns into the loot economy.
+
+        This step detects and quarantines such files before any merge or
+        lifetime normalization runs.
+
+        Returns:
+            A short human-readable message describing what was done.
+        """
+        mission_dir = instance_root / "mpmissions" / target_name
+        root_types = mission_dir / "types.xml"
+        db_types = mission_dir / "db" / "types.xml"
+
+        if not root_types.exists():
+            return "Mission economy files look clean."
+
+        # Only act when db/types.xml is the real CE file. If the mission
+        # deliberately uses root types.xml (no db/types.xml), leave it alone.
+        if not db_types.exists():
+            return "Mission uses root types.xml; leaving it untouched."
+
+        try:
+            tree = ET.parse(str(root_types))
+        except ET.ParseError:
+            # Unparseable root types.xml is also dangerous; quarantine it.
+            backup = root_types.with_suffix(".xml.corrupt")
+            try:
+                shutil.move(str(root_types), str(backup))
+                return f"Quarantined unparseable root types.xml -> {backup.name}"
+            except OSError as exc:
+                return f"Could not quarantine unparseable root types.xml: {exc}"
+
+        root_el = tree.getroot()
+        bad_categories = {"weapon", "vehicle", "gear"}
+        bad_count = 0
+        for t in root_el.findall("type"):
+            cat = t.find("category")
+            if cat is not None and cat.get("name") in bad_categories:
+                bad_count += 1
+                if bad_count >= 3:
+                    break
+
+        if bad_count >= 3:
+            backup = root_types.with_suffix(".xml.corrupt")
+            try:
+                # Remove any previous backup so we don't accumulate garbage.
+                if backup.exists():
+                    backup.unlink()
+                shutil.move(str(root_types), str(backup))
+                return (
+                    f"Quarantined corrupted root types.xml ({bad_count}+ "
+                    f"singular categories) -> {backup.name}"
+                )
+            except OSError as exc:
+                return f"Could not quarantine corrupted root types.xml: {exc}"
+
+        return "Mission economy files look clean."
 
     def _repair_nominal_values_on_deploy(
         self,
