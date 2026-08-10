@@ -10,6 +10,7 @@ from one or more reference ``types.xml`` files while leaving intentionally
 zero-nominal entries (vehicles, parts, etc.) untouched.
 """
 
+import re
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -36,6 +37,26 @@ DEFAULT_SKIP_CATEGORIES: Set[str] = {
     "explosives",
     "lootdispatch",
 }
+
+# Stock event-only vehicles and static map-placed objects that must never
+# receive a dynamic spawn nominal.  Matches are case-insensitive.
+_EVENT_ONLY_PATTERNS = (
+    "sedan", "van", "offroad", "hatchback", "truck", "boat", "heli",
+    "plane", "wreck", "aban", "staticobj_", "land_boat_", "land_wreck_",
+)
+_EVENT_ONLY_EXACT = {
+    "civilianvan", "civilianvan_black", "civilianvan_wine",
+    "civiliansedan", "civiliansedan_black", "civiliansedan_wine",
+    "wreck_mi8_crashed", "wreck_uh1y",
+}
+
+
+def _is_event_only_or_static(name: str) -> bool:
+    """Return True for stock vehicles/boats/wrecks that are event-only or static."""
+    lower = name.lower()
+    if lower in _EVENT_ONLY_EXACT:
+        return True
+    return any(pattern in lower for pattern in _EVENT_ONLY_PATTERNS)
 
 
 @dataclass
@@ -179,6 +200,13 @@ def repair_nominal_values(
         if entry.nominal != 0:
             continue
 
+        # Never restore nominal for event-only vehicles or static wrecks.
+        # Broken spawn generators zero these out intentionally, and references
+        # may still carry the old corrupted nominal=1 values.
+        if _is_event_only_or_static(name):
+            skipped.append(name)
+            continue
+
         cats = _effective_categories(entry)
         if cats & skip_cats and not (cats & loot_cats):
             skipped.append(name)
@@ -189,7 +217,13 @@ def repair_nominal_values(
             no_reference.append(name)
             continue
 
+        # Guard against reference files that still contain corrupted nominal
+        # values for event-only/static classes.
         ref_source, ref_entry = ref
+        if _is_event_only_or_static(name) or ref_entry.nominal == 0:
+            skipped.append(name)
+            continue
+
         entry.nominal = ref_entry.nominal
         entry.min = ref_entry.min
         target_xml.set_type(entry)

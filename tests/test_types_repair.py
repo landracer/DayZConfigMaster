@@ -205,3 +205,64 @@ def test_repair_missing_target_returns_error(tmp_path: Path) -> None:
     result = repair_nominal_values(target, [ref])
     assert result.success is False
     assert "not found" in result.error.lower()
+
+
+def test_repair_skips_stock_wrecks_and_event_only_vehicles(tmp_path: Path) -> None:
+    target = tmp_path / "target" / "db" / "types.xml"
+    ref = tmp_path / "reference" / "db" / "types.xml"
+
+    _write_types(
+        target,
+        """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<types>
+    <type name="Land_wreck_truck01_aban2_green_DE">
+        <nominal>0</nominal><min>0</min><lifetime>0</lifetime>
+    </type>
+    <type name="CivilianSedan">
+        <nominal>0</nominal><min>0</min><lifetime>3</lifetime>
+    </type>
+    <type name="Boat_01_Blue">
+        <nominal>0</nominal><min>0</min><lifetime>3</lifetime>
+    </type>
+    <type name="AKM">
+        <nominal>0</nominal><min>0</min><lifetime>7200</lifetime>
+        <category name="weapons"/>
+    </type>
+</types>""",
+    )
+
+    _write_types(
+        ref,
+        """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<types>
+    <type name="Land_wreck_truck01_aban2_green_DE">
+        <nominal>1</nominal><min>1</min><lifetime>0</lifetime>
+    </type>
+    <type name="CivilianSedan">
+        <nominal>1</nominal><min>1</min><lifetime>3</lifetime>
+    </type>
+    <type name="Boat_01_Blue">
+        <nominal>10</nominal><min>2</min><lifetime>3</lifetime>
+    </type>
+    <type name="AKM">
+        <nominal>5</nominal><min>2</min><lifetime>7200</lifetime>
+        <category name="weapons"/>
+    </type>
+</types>""",
+    )
+
+    result = repair_nominal_values(target, [ref])
+    assert result.success is True
+    assert result.repaired_count == 1
+    assert result.repaired[0][0] == "akm"
+    assert sorted(result.skipped) == sorted([
+        "boat_01_blue",
+        "civiliansedan",
+        "land_wreck_truck01_aban2_green_de",
+    ])
+
+    repaired_xml = TypesXml.from_file(str(target))
+    assert repaired_xml.get_type("akm").nominal == 5
+    assert repaired_xml.get_type("land_wreck_truck01_aban2_green_de").nominal == 0
+    assert repaired_xml.get_type("civiliansedan").nominal == 0
+    assert repaired_xml.get_type("boat_01_blue").nominal == 0
