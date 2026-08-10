@@ -6356,6 +6356,7 @@ Requirements:
         self,
         instance: Dict[str, Any],
         cfg_content: Optional[str] = None,
+        terminal: bool = False,
     ) -> Tuple[Optional[Path], Optional[str], Optional[str], Optional[str]]:
         """Export config and write it to the instance root folder before starting.
 
@@ -6474,17 +6475,23 @@ Requirements:
         )
 
         can_skip, skip_reason = compute_quick_skip_status(instance_root, current_manifest)
-        if can_skip and not force_redeploy:
+        if can_skip and not force_redeploy and not terminal:
             self.log_text.insert(
                 tk.END,
                 f"[{self._get_timestamp()}] Instance {instance_id}: deployment manifest matches ({skip_reason}); skipping slow deployment steps.\n",
             )
             deployed_mods_str = mods_str
         else:
-            self.log_text.insert(
-                tk.END,
-                f"[{self._get_timestamp()}] Instance {instance_id}: full deployment required ({skip_reason}).\n",
-            )
+            if terminal:
+                self.log_text.insert(
+                    tk.END,
+                    f"[{self._get_timestamp()}] Instance {instance_id}: terminal mode -- deploying clean mission files without XML modifications.\n",
+                )
+            else:
+                self.log_text.insert(
+                    tk.END,
+                    f"[{self._get_timestamp()}] Instance {instance_id}: full deployment required ({skip_reason}).\n",
+                )
             try:
                 deployed_mods_str = self._deploy_mods_and_keys(instance_root, mods_str)
             except Exception as exc:
@@ -6497,6 +6504,7 @@ Requirements:
                     map_display_name=map_display_name,
                     workshop_dir=workshop_dir,
                     mission_source_path=mission_source_path,
+                    force_fresh=terminal,
                 )
                 self.log_text.insert(
                     tk.END,
@@ -6504,7 +6512,7 @@ Requirements:
                 )
                 if mission_msg.startswith("ERROR"):
                     return None, mission_msg
-                if mission_target:
+                if mission_target and not terminal:
                     sanitize_msg = self._sanitize_mission_economy_files(
                         instance_root, mission_target
                     )
@@ -6532,20 +6540,21 @@ Requirements:
             except Exception as exc:
                 return None, f"Failed to deploy mission folder: {exc}"
 
-            try:
-                self._apply_mod_integration_to_instance(instance_root)
-            except Exception as exc:
-                return None, f"Failed to apply mod integration: {exc}"
+            if not terminal:
+                try:
+                    self._apply_mod_integration_to_instance(instance_root)
+                except Exception as exc:
+                    return None, f"Failed to apply mod integration: {exc}"
 
-            try:
-                mission_dir = ModIntegrationManager(instance_root)._find_mission_dir()
-                self._apply_per_instance_config(
-                    instance_root,
-                    workshop_dir=workshop_dir,
-                    mission_dir=mission_dir,
-                )
-            except Exception as exc:
-                return None, f"Failed to apply per-instance configuration: {exc}"
+                try:
+                    mission_dir = ModIntegrationManager(instance_root)._find_mission_dir()
+                    self._apply_per_instance_config(
+                        instance_root,
+                        workshop_dir=workshop_dir,
+                        mission_dir=mission_dir,
+                    )
+                except Exception as exc:
+                    return None, f"Failed to apply per-instance configuration: {exc}"
 
             # Save the manifest only after a successful full deployment.
             manifest_mgr.save(current_manifest)
@@ -6782,22 +6791,25 @@ Requirements:
         map_display_name: str,
         workshop_dir: str,
         mission_source_path: Optional[Path] = None,
+        force_fresh: bool = False,
     ) -> Tuple[str, str]:
         """Ensure the mission folder required by serverDZ.cfg exists.
 
         Resolves the real world name, then copies the base-game, workshop, or
         user-supplied mission folder into instance_root/mpmissions/ as
         dayzOffline.<world>. An existing real mission directory that already
-        matches the target world is always preserved so player save data and
-        custom edits are not destroyed. If a workshop map does not ship a
-        mission folder (terrain-only mods), the base game's ChernarusPlus
-        mission is copied as a starting template so the server can start and
-        the map PBOs define the terrain.
+        matches the target world is normally preserved so player save data and
+        custom edits are not destroyed, unless *force_fresh* is True. If a
+        workshop map does not ship a mission folder (terrain-only mods), the
+        base game's ChernarusPlus mission is copied as a starting template so
+        the server can start and the map PBOs define the terrain.
 
         Args:
             mission_source_path: Optional explicit source directory to copy
                 the mission from. Ignored if a matching real mission folder
-                already exists in the instance.
+                already exists in the instance (unless force_fresh is True).
+            force_fresh: If True, remove any existing real mission directory
+                and copy a clean mission folder from the source.
 
         Returns:
             A tuple of (short human-readable description of what was deployed,
@@ -6820,15 +6832,22 @@ Requirements:
 
         target_link = mpmissions_dir / target_name
 
-        # Preserve an existing real mission directory. These folders contain
-        # player saves and custom edits; deleting/replacing them would wipe
-        # progress and any hand-tuned mission files.
+        # Preserve an existing real mission directory unless a fresh copy is
+        # requested. These folders contain player saves and custom edits;
+        # deleting/replacing them would wipe progress and any hand-tuned
+        # mission files.
         if target_link.exists() and target_link.is_dir() and not target_link.is_symlink():
-            return (
-                f"Preserved existing mission folder {target_name}. "
-                "Delete it manually if you want to redeploy from a source.",
-                target_name,
-            )
+            if force_fresh:
+                try:
+                    shutil.rmtree(target_link)
+                except Exception as exc:
+                    return f"Could not remove existing mission folder {target_link}: {exc}", ""
+            else:
+                return (
+                    f"Preserved existing mission folder {target_name}. "
+                    "Delete it manually if you want to redeploy from a source.",
+                    target_name,
+                )
 
         # Remove a stale symlink/broken link before deploying a fresh one.
         if target_link.is_symlink():
@@ -7298,7 +7317,7 @@ Requirements:
             return
 
         # Ensure config and instance files are written in-place before starting.
-        instance_root, config_filename, deployed_mods_str, profile_dir = self._prepare_instance_files(instance)
+        instance_root, config_filename, deployed_mods_str, profile_dir = self._prepare_instance_files(instance, terminal=terminal)
         if instance_root is None:
             messagebox.showerror("Instance Preparation Error", config_filename)
             return
