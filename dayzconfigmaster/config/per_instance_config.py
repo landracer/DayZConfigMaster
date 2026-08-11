@@ -26,6 +26,73 @@ DEFAULT_SPAWN_COUNT = 10
 
 
 @dataclass
+class DeploymentOptions:
+    """Runtime-toggleable deployment steps for one instance.
+
+    All XML-modifying steps default to False so a fresh checkout cannot
+    silently alter factory mission files.  Backup and validation default to
+    True because they are read-only safety measures.
+    """
+
+    deploy_mission_folder: bool = False
+    sanitize_mission_economy: bool = False
+    normalize_aircraft_lifetimes: bool = False
+    repair_nominal_values: bool = False
+    apply_mod_integration: bool = False
+    apply_spawn_loadout: bool = False
+    apply_mod_settings_overrides: bool = False
+    backup_storage_before_start: bool = True
+    validate_against_sandbox: bool = True
+    require_confirmation_for_xml_changes: bool = True
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "deploy_mission_folder": self.deploy_mission_folder,
+            "sanitize_mission_economy": self.sanitize_mission_economy,
+            "normalize_aircraft_lifetimes": self.normalize_aircraft_lifetimes,
+            "repair_nominal_values": self.repair_nominal_values,
+            "apply_mod_integration": self.apply_mod_integration,
+            "apply_spawn_loadout": self.apply_spawn_loadout,
+            "apply_mod_settings_overrides": self.apply_mod_settings_overrides,
+            "backup_storage_before_start": self.backup_storage_before_start,
+            "validate_against_sandbox": self.validate_against_sandbox,
+            "require_confirmation_for_xml_changes": self.require_confirmation_for_xml_changes,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "DeploymentOptions":
+        if data is None:
+            return cls()
+        return cls(
+            deploy_mission_folder=data.get("deploy_mission_folder", False),
+            sanitize_mission_economy=data.get("sanitize_mission_economy", False),
+            normalize_aircraft_lifetimes=data.get("normalize_aircraft_lifetimes", False),
+            repair_nominal_values=data.get("repair_nominal_values", False),
+            apply_mod_integration=data.get("apply_mod_integration", False),
+            apply_spawn_loadout=data.get("apply_spawn_loadout", False),
+            apply_mod_settings_overrides=data.get("apply_mod_settings_overrides", False),
+            backup_storage_before_start=data.get("backup_storage_before_start", True),
+            validate_against_sandbox=data.get("validate_against_sandbox", True),
+            require_confirmation_for_xml_changes=data.get(
+                "require_confirmation_for_xml_changes", True
+            ),
+        )
+
+    def any_xml_modification_enabled(self) -> bool:
+        """Return True if any step that can alter XML is enabled."""
+        return any(
+            (
+                self.sanitize_mission_economy,
+                self.normalize_aircraft_lifetimes,
+                self.repair_nominal_values,
+                self.apply_mod_integration,
+                self.apply_spawn_loadout,
+                self.apply_mod_settings_overrides,
+            )
+        )
+
+
+@dataclass
 class SpawnableEntry:
     """A single spawnable selected for an instance."""
     name: str
@@ -152,6 +219,7 @@ class PerInstanceConfigManager:
         self.config_dir = self.instance_root / "dcm_config"
         self.spawn_loadout_path = self.config_dir / "spawn_loadout.json"
         self.mod_settings_path = self.config_dir / "mod_settings_overrides.json"
+        self.deployment_options_path = self.config_dir / "deployment_options.json"
 
     def _ensure_dir(self) -> None:
         self.config_dir.mkdir(parents=True, exist_ok=True)
@@ -172,6 +240,24 @@ class PerInstanceConfigManager:
         loadout.last_updated = datetime.now(timezone.utc).isoformat()
         self.spawn_loadout_path.write_text(
             json.dumps(loadout.to_dict(), indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    def load_deployment_options(self) -> DeploymentOptions:
+        """Load saved deployment options, or conservative defaults."""
+        if not self.deployment_options_path.exists():
+            return DeploymentOptions()
+        try:
+            data = json.loads(self.deployment_options_path.read_text(encoding="utf-8"))
+            return DeploymentOptions.from_dict(data)
+        except (json.JSONDecodeError, OSError):
+            return DeploymentOptions()
+
+    def save_deployment_options(self, options: DeploymentOptions) -> None:
+        """Persist *options* to the instance's deployment_options.json file."""
+        self._ensure_dir()
+        self.deployment_options_path.write_text(
+            json.dumps(options.to_dict(), indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
 

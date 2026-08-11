@@ -567,6 +567,8 @@ class DayzConfigMasterApp:
         # Per-instance button widgets for dynamic enable/disable.
         self._instance_start_buttons: Dict[str, ttk.Button] = {}
         self._instance_stop_buttons: Dict[str, ttk.Button] = {}
+        # Per-instance deployment option widgets and persisted objects.
+        self._instance_deployment_options: Dict[str, Tuple[DeploymentOptions, Dict[str, tk.BooleanVar]]] = {}
         
         # Server Control inner notebook references
         self._control_notebook: Optional[ttk.Notebook] = None
@@ -6302,6 +6304,7 @@ Requirements:
         # Button references are rebuilt below; clear old ones first.
         self._instance_start_buttons.clear()
         self._instance_stop_buttons.clear()
+        self._instance_deployment_options.clear()
 
         if not self._instance_vars:
             ttk.Label(
@@ -6349,14 +6352,117 @@ Requirements:
             self._instance_start_buttons[instance_id] = start_btn
             self._instance_stop_buttons[instance_id] = stop_btn
 
+            # Deployment options frame
+            self._build_deployment_options_frame(frame, instance)
+
         # Sync button states with currently tracked running instances.
         self._update_instance_button_states()
+
+    def _build_deployment_options_frame(self, parent: ttk.Frame, instance: Dict[str, Any]) -> None:
+        """Build the per-instance deployment options toggle UI."""
+        from dayzconfigmaster.config.per_instance_config import (
+            PerInstanceConfigManager,
+            DeploymentOptions,
+        )
+
+        instance_id = instance["id"].get()
+        root_folder = instance.get("root_folder", {}).get() or ""
+        root_folder = self._sanitize_instance_root(root_folder, int(instance_id) if instance_id.isdigit() else 1)
+        instance_root = Path(root_folder) if root_folder else Path(self.dayz_path_var.get().strip())
+
+        mgr = PerInstanceConfigManager(instance_root)
+        options = mgr.load_deployment_options()
+
+        opts_frame = ttk.LabelFrame(parent, text="Deployment Options (save before starting)", padding=5)
+        opts_frame.pack(fill=tk.X, padx=5, pady=(5, 0))
+
+        vars_dict: Dict[str, tk.BooleanVar] = {}
+        checks: List[Tuple[str, str, tk.BooleanVar]] = []
+
+        def make_check(key: str, label: str, default: bool) -> tk.BooleanVar:
+            var = tk.BooleanVar(value=getattr(options, key, default))
+            vars_dict[key] = var
+            checks.append((key, label, var))
+            return var
+
+        make_check("deploy_mission_folder", "Deploy fresh mission folder from base game (WIPES mission folder)", options.deploy_mission_folder)
+        make_check("backup_storage_before_start", "Backup players.db & storage_1/data before start", options.backup_storage_before_start)
+        make_check("validate_against_sandbox", "Validate mission XML against sandbox factory files", options.validate_against_sandbox)
+        make_check("sanitize_mission_economy", "Sanitize mission economy files (quarantine corrupt root XML)", options.sanitize_mission_economy)
+        make_check("normalize_aircraft_lifetimes", "Normalize aircraft lifetimes", options.normalize_aircraft_lifetimes)
+        make_check("repair_nominal_values", "Repair nominal values from reference missions", options.repair_nominal_values)
+        make_check("apply_mod_integration", "Apply mod integration XML edits", options.apply_mod_integration)
+        make_check("apply_spawn_loadout", "Apply spawn loadout XML edits", options.apply_spawn_loadout)
+        make_check("apply_mod_settings_overrides", "Apply mod settings overrides", options.apply_mod_settings_overrides)
+        make_check("require_confirmation_for_xml_changes", "Require confirmation before XML-modifying steps", options.require_confirmation_for_xml_changes)
+
+        # Layout in two columns
+        for idx, (key, label, var) in enumerate(checks):
+            row = idx // 2
+            col = idx % 2
+            cb = ttk.Checkbutton(opts_frame, text=label, variable=var)
+            cb.grid(row=row, column=col, sticky=tk.W, padx=5, pady=1)
+
+        warning_label = ttk.Label(
+            opts_frame,
+            text="⚠ XML-modifying steps are enabled. Factory files may be changed.",
+            foreground="red",
+        )
+        warning_label.grid(row=(len(checks) + 1) // 2, column=0, columnspan=2, sticky=tk.W, padx=5, pady=(5, 0))
+        warning_label.grid_remove()
+
+        def update_warning(*_args):
+            if any(vars_dict[k].get() for k in (
+                "sanitize_mission_economy",
+                "normalize_aircraft_lifetimes",
+                "repair_nominal_values",
+                "apply_mod_integration",
+                "apply_spawn_loadout",
+                "apply_mod_settings_overrides",
+            )):
+                warning_label.grid()
+            else:
+                warning_label.grid_remove()
+
+        for key, _label, var in checks:
+            if key in (
+                "sanitize_mission_economy",
+                "normalize_aircraft_lifetimes",
+                "repair_nominal_values",
+                "apply_mod_integration",
+                "apply_spawn_loadout",
+                "apply_mod_settings_overrides",
+            ):
+                var.trace_add("write", update_warning)
+
+        def save_options():
+            new_options = DeploymentOptions(
+                deploy_mission_folder=vars_dict["deploy_mission_folder"].get(),
+                backup_storage_before_start=vars_dict["backup_storage_before_start"].get(),
+                validate_against_sandbox=vars_dict["validate_against_sandbox"].get(),
+                sanitize_mission_economy=vars_dict["sanitize_mission_economy"].get(),
+                normalize_aircraft_lifetimes=vars_dict["normalize_aircraft_lifetimes"].get(),
+                repair_nominal_values=vars_dict["repair_nominal_values"].get(),
+                apply_mod_integration=vars_dict["apply_mod_integration"].get(),
+                apply_spawn_loadout=vars_dict["apply_spawn_loadout"].get(),
+                apply_mod_settings_overrides=vars_dict["apply_mod_settings_overrides"].get(),
+                require_confirmation_for_xml_changes=vars_dict["require_confirmation_for_xml_changes"].get(),
+            )
+            mgr.save_deployment_options(new_options)
+            self._instance_deployment_options[instance_id] = (new_options, vars_dict)
+            self.log_text.insert(tk.END, f"[{self._get_timestamp()}] Instance {instance_id}: deployment options saved.\n")
+            messagebox.showinfo("Saved", f"Deployment options saved for instance {instance_id}.")
+
+        save_btn = ttk.Button(opts_frame, text="💾 Save Deployment Options", command=save_options)
+        save_btn.grid(row=(len(checks) + 1) // 2 + 1, column=0, sticky=tk.W, padx=5, pady=(5, 0))
+
+        self._instance_deployment_options[instance_id] = (options, vars_dict)
+        update_warning()
 
     def _prepare_instance_files(
         self,
         instance: Dict[str, Any],
         cfg_content: Optional[str] = None,
-        terminal: bool = False,
     ) -> Tuple[Optional[Path], Optional[str], Optional[str], Optional[str]]:
         """Export config and write it to the instance root folder before starting.
 
@@ -6364,20 +6470,27 @@ Requirements:
         any required directories, and writes the config and Effects & Triggers
         files in-place before the server process starts.
 
+        Deployment steps are controlled by the instance's saved
+        :class:`DeploymentOptions`.  XML-modifying steps default to disabled,
+        and a confirmation dialog is shown when they are enabled.
+
         Args:
             instance: Instance variable dict from the UI.
             cfg_content: Optional pre-generated serverDZ.cfg content. If omitted,
                 the content is built from the multi-instance configuration.
-            force_redeploy: If True, ignore the deployment manifest and run the
-                full deployment pipeline.
 
         Returns:
             (instance_root_path, config_filename, deployed_mods_str, profile_dir) or
             (None, error_message, None, None).
         """
         from dayzconfigmaster.mods.integration import ModIntegrationManager
+        from dayzconfigmaster.config.per_instance_config import (
+            PerInstanceConfigManager,
+            DeploymentOptions,
+        )
 
         instance_id = int(instance["id"].get() or 1)
+        instance_id_str = instance["id"].get()
         config_filename = instance["config_file"].get() or f"serverDZ_{instance_id}.cfg"
 
         dayz_path = self.dayz_path_var.get().strip()
@@ -6451,11 +6564,77 @@ Requirements:
             cfg_content = all_configs.get(config_filename, "")
         cfg_content = cfg_content or ""
 
-        from dayzconfigmaster.config.per_instance_config import PerInstanceConfigManager
-
         per_instance_mgr = PerInstanceConfigManager(instance_root)
+        options = per_instance_mgr.load_deployment_options()
         spawn_loadout = per_instance_mgr.load_spawn_loadout()
         mod_settings_overrides = per_instance_mgr.load_mod_settings_overrides()
+
+        # Optional safety backup before any changes.
+        if options.backup_storage_before_start:
+            backup_ok, backup_msg, _backup_path = self._backup_instance_storage_before_start(
+                instance_root, instance_id_str
+            )
+            self.log_text.insert(
+                tk.END,
+                f"[{self._get_timestamp()}] Instance {instance_id}: {backup_msg}\n",
+            )
+            if not backup_ok:
+                return None, backup_msg
+
+        # Optional sandbox validation.  If enabled and the mission XML differs
+        # from factory files, warn but do not block unless XML modifications are
+        # also enabled.
+        mission_target_name = self._resolve_world_name(map_display_name, workshop_dir)
+        if mission_target_name:
+            if mission_target_name.lower().startswith("dayzoffline.") or mission_target_name.lower().startswith("dayz."):
+                pass
+            else:
+                mission_target_name = f"dayzOffline.{mission_target_name}"
+        else:
+            mission_target_name = ""
+
+        if options.validate_against_sandbox and mission_target_name:
+            valid, validation_msgs = self._validate_mission_against_sandbox(
+                instance_root, mission_target_name, Path(dayz_path)
+            )
+            for msg in validation_msgs:
+                self.log_text.insert(
+                    tk.END,
+                    f"[{self._get_timestamp()}] Instance {instance_id} sandbox: {msg}\n",
+                )
+            if not valid and options.any_xml_modification_enabled():
+                if not messagebox.askyesno(
+                    "Sandbox Mismatch",
+                    f"Instance {instance_id} mission XML differs from factory files.\n\n"
+                    "XML-modifying steps are enabled. Continuing will overwrite those "
+                    "differences.\n\n"
+                    "A backup of players.db and storage_1/data was already created.\n\n"
+                    "Do you want to continue?",
+                ):
+                    return None, "Aborted by user due to sandbox mismatch."
+
+        # Require explicit confirmation before any XML-modifying step runs.
+        if options.require_confirmation_for_xml_changes and options.any_xml_modification_enabled():
+            enabled_steps = []
+            if options.sanitize_mission_economy:
+                enabled_steps.append("sanitize mission economy")
+            if options.normalize_aircraft_lifetimes:
+                enabled_steps.append("normalize aircraft lifetimes")
+            if options.repair_nominal_values:
+                enabled_steps.append("repair nominal values")
+            if options.apply_mod_integration:
+                enabled_steps.append("apply mod integration")
+            if options.apply_spawn_loadout:
+                enabled_steps.append("apply spawn loadout")
+            if options.apply_mod_settings_overrides:
+                enabled_steps.append("apply mod settings overrides")
+            if not messagebox.askyesno(
+                "Confirm XML Modifications",
+                f"Instance {instance_id} has the following XML-modifying steps enabled:\n\n"
+                + "\n".join(f"  • {s}" for s in enabled_steps)
+                + "\n\nA backup was already created. Continue?",
+            ):
+                return None, "Aborted by user: XML modifications not confirmed."
 
         # Mod integration state affects which XML fragments are merged.
         mod_integration_state = ModIntegrationManager(instance_root).load_state()
@@ -6475,23 +6654,17 @@ Requirements:
         )
 
         can_skip, skip_reason = compute_quick_skip_status(instance_root, current_manifest)
-        if can_skip and not force_redeploy and not terminal:
+        if can_skip and not force_redeploy and not options.deploy_mission_folder:
             self.log_text.insert(
                 tk.END,
                 f"[{self._get_timestamp()}] Instance {instance_id}: deployment manifest matches ({skip_reason}); skipping slow deployment steps.\n",
             )
             deployed_mods_str = mods_str
         else:
-            if terminal:
-                self.log_text.insert(
-                    tk.END,
-                    f"[{self._get_timestamp()}] Instance {instance_id}: terminal mode -- deploying clean mission files without XML modifications.\n",
-                )
-            else:
-                self.log_text.insert(
-                    tk.END,
-                    f"[{self._get_timestamp()}] Instance {instance_id}: full deployment required ({skip_reason}).\n",
-                )
+            self.log_text.insert(
+                tk.END,
+                f"[{self._get_timestamp()}] Instance {instance_id}: full deployment required ({skip_reason}).\n",
+            )
             try:
                 deployed_mods_str = self._deploy_mods_and_keys(instance_root, mods_str)
             except Exception as exc:
@@ -6504,7 +6677,7 @@ Requirements:
                     map_display_name=map_display_name,
                     workshop_dir=workshop_dir,
                     mission_source_path=mission_source_path,
-                    force_fresh=terminal,
+                    force_fresh=options.deploy_mission_folder,
                 )
                 self.log_text.insert(
                     tk.END,
@@ -6512,47 +6685,77 @@ Requirements:
                 )
                 if mission_msg.startswith("ERROR"):
                     return None, mission_msg
-                if mission_target and not terminal:
-                    sanitize_msg = self._sanitize_mission_economy_files(
-                        instance_root, mission_target
-                    )
-                    self.log_text.insert(
-                        tk.END,
-                        f"[{self._get_timestamp()}] Instance {instance_id} "
-                        f"economy sanitize: {sanitize_msg}\n",
-                    )
-                    lifetime_msg = self._normalize_aircraft_lifetimes(
-                        instance_root, mission_target
-                    )
-                    self.log_text.insert(
-                        tk.END,
-                        f"[{self._get_timestamp()}] Instance {instance_id} "
-                        f"aircraft lifetime: {lifetime_msg}\n",
-                    )
-                    nominal_msg = self._repair_nominal_values_on_deploy(
-                        instance_root, mission_target
-                    )
-                    self.log_text.insert(
-                        tk.END,
-                        f"[{self._get_timestamp()}] Instance {instance_id} "
-                        f"nominal repair: {nominal_msg}\n",
-                    )
+                if mission_target:
+                    if options.sanitize_mission_economy:
+                        sanitize_msg = self._sanitize_mission_economy_files(
+                            instance_root, mission_target
+                        )
+                        self.log_text.insert(
+                            tk.END,
+                            f"[{self._get_timestamp()}] Instance {instance_id} "
+                            f"economy sanitize: {sanitize_msg}\n",
+                        )
+                    if options.normalize_aircraft_lifetimes:
+                        lifetime_msg = self._normalize_aircraft_lifetimes(
+                            instance_root, mission_target
+                        )
+                        self.log_text.insert(
+                            tk.END,
+                            f"[{self._get_timestamp()}] Instance {instance_id} "
+                            f"aircraft lifetime: {lifetime_msg}\n",
+                        )
+                    if options.repair_nominal_values:
+                        nominal_msg = self._repair_nominal_values_on_deploy(
+                            instance_root, mission_target
+                        )
+                        self.log_text.insert(
+                            tk.END,
+                            f"[{self._get_timestamp()}] Instance {instance_id} "
+                            f"nominal repair: {nominal_msg}\n",
+                        )
             except Exception as exc:
                 return None, f"Failed to deploy mission folder: {exc}"
 
-            if not terminal:
+            if options.apply_mod_integration:
                 try:
                     self._apply_mod_integration_to_instance(instance_root)
                 except Exception as exc:
                     return None, f"Failed to apply mod integration: {exc}"
 
+            if options.apply_spawn_loadout or options.apply_mod_settings_overrides:
                 try:
                     mission_dir = ModIntegrationManager(instance_root)._find_mission_dir()
-                    self._apply_per_instance_config(
-                        instance_root,
-                        workshop_dir=workshop_dir,
-                        mission_dir=mission_dir,
-                    )
+                    workshop_path = Path(workshop_dir) if workshop_dir else None
+
+                    if options.apply_spawn_loadout and mission_dir is not None:
+                        self.log_text.insert(
+                            tk.END,
+                            f"[{self._get_timestamp()}] Applying spawn loadout to "
+                            f"{mission_dir.name}...\n",
+                        )
+                        self.log_text.update_idletasks()
+                        ok, messages = per_instance_mgr.apply_spawn_loadout(
+                            mission_dir, workshop_path
+                        )
+                        for msg in messages:
+                            self.log_text.insert(
+                                tk.END,
+                                f"[{self._get_timestamp()}] Spawn loadout: {msg}\n",
+                            )
+                        if not ok:
+                            return None, "One or more spawn loadout entries failed."
+
+                    if options.apply_mod_settings_overrides:
+                        ok, messages = per_instance_mgr.apply_mod_settings_overrides(
+                            instance_root, mission_dir
+                        )
+                        for msg in messages:
+                            self.log_text.insert(
+                                tk.END,
+                                f"[{self._get_timestamp()}] Mod settings: {msg}\n",
+                            )
+                        if not ok:
+                            return None, "One or more mod-settings overrides failed."
                 except Exception as exc:
                     return None, f"Failed to apply per-instance configuration: {exc}"
 
@@ -7196,6 +7399,87 @@ Requirements:
             return "Mission economy files look clean."
         return " ".join(messages)
 
+    @staticmethod
+    def _compute_file_hash(path: Path) -> str:
+        """Return a simple hash of a file's content for comparison."""
+        import hashlib
+        try:
+            return hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError:
+            return ""
+
+    def _backup_instance_storage_before_start(
+        self,
+        instance_root: Path,
+        instance_id: str,
+    ) -> Tuple[bool, str, Optional[Path]]:
+        """Backup players.db and storage_1/data before a deployment/start.
+
+        Uses the same incremental backup manager as scheduled backups so all
+        snapshots share unchanged blocks.
+
+        Returns:
+            (success, message, backup_path).
+        """
+        from dayzconfigmaster.backups.storage_backup import StorageBackupManager
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_name = f"prestart_instance_{instance_id}_{timestamp}"
+        backup_root = instance_root / "backups" / "storage"
+        manager = StorageBackupManager(
+            instance_root,
+            backup_root=backup_root,
+            retention_hours=24,
+        )
+        result = manager.create_backup(name=backup_name)
+        return result.success, result.message, result.backup_path
+
+    def _validate_mission_against_sandbox(
+        self,
+        instance_root: Path,
+        target_name: str,
+        dayz_path: Path,
+    ) -> Tuple[bool, List[str]]:
+        """Compare key mission XML files against base-game factory files.
+
+        Returns:
+            (ok, messages) where ok is False if any file differs from sandbox.
+        """
+        mission_dir = instance_root / "mpmissions" / target_name
+        sandbox_dir = dayz_path / "mpmissions" / target_name
+        if not sandbox_dir.exists():
+            return True, [f"Sandbox mission folder not found at {sandbox_dir}; skipping validation."]
+
+        files_to_check = [
+            Path("db") / "types.xml",
+            Path("db") / "events.xml",
+            Path("cfgspawnabletypes.xml"),
+            Path("cfgeventspawns.xml"),
+        ]
+
+        messages: List[str] = []
+        ok = True
+        for rel in files_to_check:
+            inst_file = mission_dir / rel
+            sandbox_file = sandbox_dir / rel
+            if not inst_file.exists():
+                messages.append(f"MISSING {rel}: instance file does not exist.")
+                ok = False
+                continue
+            if not sandbox_file.exists():
+                continue
+            if inst_file.stat().st_size != sandbox_file.stat().st_size:
+                messages.append(f"DIFFER {rel}: size differs from sandbox.")
+                ok = False
+                continue
+            if self._compute_file_hash(inst_file) != self._compute_file_hash(sandbox_file):
+                messages.append(f"DIFFER {rel}: content differs from sandbox.")
+                ok = False
+
+        if ok:
+            messages.append("Mission XML matches sandbox factory files.")
+        return ok, messages
+
     def _repair_nominal_values_on_deploy(
         self,
         instance_root: Path,
@@ -7317,7 +7601,7 @@ Requirements:
             return
 
         # Ensure config and instance files are written in-place before starting.
-        instance_root, config_filename, deployed_mods_str, profile_dir = self._prepare_instance_files(instance, terminal=terminal)
+        instance_root, config_filename, deployed_mods_str, profile_dir = self._prepare_instance_files(instance)
         if instance_root is None:
             messagebox.showerror("Instance Preparation Error", config_filename)
             return
