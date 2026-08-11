@@ -6671,13 +6671,16 @@ Requirements:
                 return None, f"Failed to deploy mods/keys: {exc}"
 
             try:
+                # Preserve the current mission folder by default.  Only replace
+                # it when the user explicitly enables "Deploy fresh mission
+                # folder from base game".
                 mission_msg, mission_target = self._deploy_mission_folder(
                     instance_root=instance_root,
                     dayz_path=Path(dayz_path),
                     map_display_name=map_display_name,
                     workshop_dir=workshop_dir,
                     mission_source_path=mission_source_path,
-                    force_fresh=options.deploy_mission_folder,
+                    force_fresh=False,
                 )
                 self.log_text.insert(
                     tk.END,
