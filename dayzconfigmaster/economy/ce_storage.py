@@ -102,11 +102,14 @@ def backup_and_clear_ce_storage(
     instance_root: Path,
     mission_target_name: str,
     backup_label: Optional[str] = None,
+    only_bin_files: bool = False,
 ) -> Tuple[bool, str, Optional[Path]]:
     """Move ``storage_1/data/*`` to a backup folder and return the backup path.
 
-    DayZ keeps recovery copies with extensions ``.001``/``.002``; those are
-    moved too so the server cannot restore an old cache.
+    DayZ keeps recovery copies with extensions ``.001``/``.002``; by default
+    those are moved too so the server cannot restore an old cache.  Set
+    ``only_bin_files=True`` to clear only the primary ``.bin`` files while
+    leaving recovery copies and player-related files untouched.
     """
     data_dir = find_ce_storage_data_dir(instance_root, mission_target_name)
     if not data_dir:
@@ -128,9 +131,12 @@ def backup_and_clear_ce_storage(
 
     moved = 0
     for src in sorted(files):
-        if src.is_file():
-            shutil.move(str(src), str(backup_dir / src.name))
-            moved += 1
+        if not src.is_file():
+            continue
+        if only_bin_files and src.suffix.lower() != ".bin":
+            continue
+        shutil.move(str(src), str(backup_dir / src.name))
+        moved += 1
 
     return True, f"Backed up and cleared {moved} CE storage files to {backup_dir}", backup_dir
 
