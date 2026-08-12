@@ -147,7 +147,6 @@ Removing the mod restored world weapon spawns.
 
 ## Related Files
 
-- [references/MOD_DEBUG_HOWTO.md](../../references/MOD_DEBUG_HOWTO.md)
 - [tools/mod_debug_analyzer.py](../../tools/mod_debug_analyzer.py)
 - [mod-corruption.md](mod-corruption.md)
 - [server-config-mods.md](server-config-mods.md)

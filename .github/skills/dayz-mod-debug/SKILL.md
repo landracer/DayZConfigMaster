@@ -67,7 +67,6 @@ grep "will be ignored" <RPT> | grep -iE "ak|m4|mosin|sks|mp5|izh|ump|mkii"
 
 ## Key Files
 
-- [references/MOD_DEBUG_HOWTO.md](../../../references/MOD_DEBUG_HOWTO.md)
 - [wiki/06-configuration/mod-debug-diagnosis.md](../../../wiki/06-configuration/mod-debug-diagnosis.md)
 - [tools/mod_debug_analyzer.py](../../../tools/mod_debug_analyzer.py)
 - [dayzconfigmaster/mods/integration.py](../../../dayzconfigmaster/mods/integration.py)
