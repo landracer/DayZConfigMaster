@@ -1,9 +1,0 @@
-// Source: F:/Games/Dayz/scripts/4_world/entities/itembase/clothing/okzkcap_colorbase.c Source File
-// Extracted from DayZ Code Explorer by Zeroy
-
-class OKZKCap_ColorBase extends HeadGear_Base
-{
-    override void SetActions()
-    {
-        super.SetActions();
-        AddAction(ActionWringClothes);

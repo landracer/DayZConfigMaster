@@ -1,8 +1,0 @@
-// Source: F:/Games/Dayz/scripts/4_world/classes/useractionscomponent/actions/continuous/medical/actioncollectbloodself.c Source File
-// Extracted from DayZ Code Explorer by Zeroy
-
-class ActionCollectBloodSelfCB : ActionContinuousBaseCB
-{
-    override void CreateActionComponent()
-    {
-        m_ActionData.m_ActionComponent = new CAContinuousTime(UATimeSpent.COLLECT_BLOOD);
