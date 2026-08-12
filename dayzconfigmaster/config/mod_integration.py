@@ -402,15 +402,39 @@ def _extract_vehicle_names_from_xml(path: Path) -> List[str]:
     mod-added vehicles even when their class name is just a brand/model token.
     For events.xml and classnames.txt-style XML we keep the keyword filter
     because those files are less structured.
+
+    Broken mod XML (missing root, multiple top-level elements, CRLF-broken
+    attributes) is repaired before parsing so that mod classes are still
+    discoverable.
     """
     try:
         text = path.read_text(encoding="utf-8", errors="ignore")
     except (OSError, PermissionError):
         return []
+
     try:
         root = ET.fromstring(text)
     except ET.ParseError:
-        return []
+        # Attempt a conservative repair.  A lone <type> block should live
+        # under <types>; a lone <event> under <events>.
+        try:
+            from dayzconfigmaster.mods.xml_repair import repair_mod_xml
+        except Exception:
+            return []
+        cleaned = re.sub(r"<\?xml.*?\?>", "", text, flags=re.DOTALL)
+        cleaned = re.sub(r"<!--.*?-->", "", cleaned, flags=re.DOTALL)
+        match = re.search(r"<([a-zA-Z_][\w.-]*)", cleaned)
+        first_tag = match.group(1) if match else "root"
+        expected_root = {"type": "types", "event": "events"}.get(
+            first_tag.lower(), first_tag
+        )
+        repair = repair_mod_xml(text, expected_root)
+        if not repair.ok:
+            return []
+        try:
+            root = ET.fromstring(repair.text)
+        except ET.ParseError:
+            return []
 
     names: List[str] = []
     tag = root.tag.lower() if root.tag else ""

@@ -26,24 +26,30 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 from xml.etree import ElementTree as ET
 
+from .xml_repair import (
+    TARGET_TO_ROOT_TAG,
+    XmlValidationResult,
+    repair_mod_xml,
+    validate_cfgeconomycore,
+    validate_mission_xml,
+)
+
 
 # Mapping from XML root element tag to the relative path inside the mission
 # directory where the fragment should be merged.
+# NOTE: these match the *actual root tags* of the DayZ root mission files,
+# not the CE-routed type tokens used by cfgeconomycore.xml.
 ROOT_TO_MISSION_PATH: Dict[str, str] = {
     "types": "db/types.xml",
     "spawnabletypes": "cfgspawnabletypes.xml",
     "eventposdef": "cfgeventspawns.xml",
     "events": "db/events.xml",
     "economy": "db/economy.xml",
-    "limits": "cfglimitsdefinition.xml",
-    "limitss": "cfglimitsdefinitionuser.xml",
+    "lists": "cfglimitsdefinition.xml",
+    "user_lists": "cfglimitsdefinitionuser.xml",
     "randompresets": "cfgrandompresets.xml",
-    "environment": "cfgenvironment.xml",
-    "mapgroupproto": "mapgroupproto.xml",
-    "mapgrouppos": "mapgrouppos.xml",
-    "mapgroupcluster": "mapgroupcluster.xml",
-    "mapgroupdirt": "mapgroupdirt.xml",
-    "mapclusterproto": "mapclusterproto.xml",
+    "env": "cfgenvironment.xml",
+    "prototype": "mapgroupproto.xml",
     "playerspawnpoints": "cfgplayerspawnpoints.xml",
 }
 
@@ -77,6 +83,10 @@ class ModConfigFragment:
     target_mission_path: str
     root_tag: str
     entry_count: int = 0
+    validation_message: str = ""
+    repaired: bool = False
+    ok: bool = True
+    source_text: Optional[str] = None
 
 
 @dataclass
@@ -143,7 +153,12 @@ class ModIntegrationManager:
         return fragments
 
     def _classify_fragment(self, xml_path: Path) -> Optional[ModConfigFragment]:
-        """Determine which mission file an XML fragment should merge into."""
+        """Determine which mission file an XML fragment should merge into.
+
+        The fragment is validated and repaired on the spot.  Files that cannot
+        be made well-formed are returned as non-ok fragments so the caller can
+        log a warning and skip them instead of letting them corrupt the target.
+        """
         try:
             text = xml_path.read_text(encoding="utf-8", errors="ignore")
         except OSError:
@@ -153,25 +168,42 @@ class ModIntegrationManager:
         if not text.strip().startswith("<"):
             return None
 
-        # Try filename hint first.
+        # Resolve the target mission path first so we know which root element
+        # the fragment is expected to have.
         lower_name = xml_path.name.lower()
+        target_mission_path: Optional[str] = None
         if lower_name in FILENAME_HINTS:
+            target_mission_path = FILENAME_HINTS[lower_name]
+        else:
+            root_tag = self._peek_root_tag(text)
+            if root_tag and root_tag.lower() in ROOT_TO_MISSION_PATH:
+                target_mission_path = ROOT_TO_MISSION_PATH[root_tag.lower()]
+
+        if target_mission_path is None:
+            return None
+
+        expected_root = TARGET_TO_ROOT_TAG.get(
+            target_mission_path, self._peek_root_tag(text) or "root"
+        )
+        repair = repair_mod_xml(text, expected_root)
+        if not repair.ok:
             return ModConfigFragment(
                 source_path=xml_path,
-                target_mission_path=FILENAME_HINTS[lower_name],
-                root_tag=self._peek_root_tag(text) or "",
+                target_mission_path=target_mission_path,
+                root_tag=expected_root,
+                ok=False,
+                validation_message=f"REJECTED: {repair.error}",
             )
 
-        # Fall back to root element detection.
-        root_tag = self._peek_root_tag(text)
-        if root_tag and root_tag.lower() in ROOT_TO_MISSION_PATH:
-            return ModConfigFragment(
-                source_path=xml_path,
-                target_mission_path=ROOT_TO_MISSION_PATH[root_tag.lower()],
-                root_tag=root_tag,
-            )
-
-        return None
+        root_tag = self._peek_root_tag(repair.text) or expected_root
+        return ModConfigFragment(
+            source_path=xml_path,
+            target_mission_path=target_mission_path,
+            root_tag=root_tag,
+            source_text=repair.text,
+            validation_message=repair.message,
+            repaired=repair.was_repaired,
+        )
 
     @staticmethod
     def _peek_root_tag(text: str) -> Optional[str]:
@@ -185,37 +217,243 @@ class ModIntegrationManager:
     # ------------------------------------------------------------------
     # Mission file resolution
     # ------------------------------------------------------------------
-    def _find_mission_dir(self) -> Optional[Path]:
-        """Locate the active mission directory inside the instance."""
+    def _find_mission_dir(
+        self, target_name: Optional[str] = None
+    ) -> Optional[Path]:
+        """Locate the active mission directory inside the instance.
+
+        The function never guesses between multiple mission folders.  It
+        requires an explicit *target_name* or a ``serverDZ_*.cfg`` template
+        that matches a folder under ``mpmissions/``.  This prevents mod XML
+        from being silently written into the wrong map's mission folder.
+        """
         mpmissions = self.instance_root / "mpmissions"
         if not mpmissions.exists():
             return None
 
-        # Prefer a folder that looks like dayzOffline.<world>.
-        for item in mpmissions.iterdir():
-            if item.is_dir() and "dayzoffline" in item.name.lower():
-                return item
+        # Explicit target wins.
+        if target_name:
+            exact = mpmissions / target_name
+            if exact.is_dir():
+                return exact
+            return None
 
-        # Fall back to any directory containing db/types.xml.
-        for item in mpmissions.iterdir():
-            if item.is_dir() and (item / "db" / "types.xml").exists():
-                return item
+        # Parse serverDZ_*.cfg for the template= line.
+        template = self._read_server_template()
+        if template:
+            exact = mpmissions / template
+            if exact.is_dir():
+                return exact
+            return None
 
+        return None
+
+    def _read_server_template(self) -> Optional[str]:
+        """Return the mission template name from serverDZ_*.cfg, if present."""
+        for cfg_path in sorted(self.instance_root.glob("serverDZ_*.cfg")):
+            try:
+                text = cfg_path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            match = re.search(r'template\s*=\s*"([^"]+)"', text)
+            if match:
+                return match.group(1)
         return None
 
     def _resolve_target_path(self, mission_dir: Path, relative_path: str) -> Path:
         """Return the absolute server mission file path for a relative target."""
         return mission_dir / relative_path
 
+    def _expected_root_for_target(self, target_path: Path) -> Optional[str]:
+        """Return the expected root element tag for a mission XML file."""
+        name = target_path.name.lower()
+        name_hint = {
+            "types.xml": "types",
+            "cfgspawnabletypes.xml": "spawnabletypes",
+            "cfgeventspawns.xml": "eventposdef",
+            "events.xml": "events",
+            "economy.xml": "economy",
+            "cfglimitsdefinition.xml": "limits",
+            "cfglimitsdefinitionuser.xml": "limitss",
+            "cfgrandompresets.xml": "randompresets",
+            "cfgenvironment.xml": "environment",
+            "mapgroupproto.xml": "prototype",
+            "mapgrouppos.xml": "map",
+            "mapgroupcluster.xml": "map",
+            "mapgroupdirt.xml": "map",
+            "mapclusterproto.xml": "prototype",
+            "cfgplayerspawnpoints.xml": "playerspawnpoints",
+        }.get(name)
+        if name_hint:
+            return name_hint
+        # For files we do not have a hint for, skip structural validation.
+        return None
+
+    @staticmethod
+    def _serialize_et(root: ET.Element) -> str:
+        """Serialize an ElementTree element to a DayZ-style XML string."""
+        ET.indent(root, space="    ")
+        body = ET.tostring(root, encoding="unicode")
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + body
+
+    def _ce_type_for_file(self, filename: str) -> str:
+        """Return the DayZ ``<file type="...">`` value for a mission file."""
+        return self._CE_TYPE_FOR_FILE.get(filename.lower(), "")
+
+    def _ensure_ce_references(
+        self,
+        mission_dir: Path,
+        modified_files: List[Path],
+    ) -> ModIntegrationResult:
+        """Ensure ``cfgeconomycore.xml`` contains ``<ce>`` entries for modified files.
+
+        DayZ ignores custom mission XML unless it is referenced by
+        ``cfgeconomycore.xml``.  This method adds missing references after
+        mod integration and validates the resulting core file.
+        """
+        result = ModIntegrationResult(success=True)
+        core_path = mission_dir / "cfgeconomycore.xml"
+        if not core_path.exists():
+            result.warnings.append(
+                "cfgeconomycore.xml not found; cannot ensure CE references"
+            )
+            return result
+
+        try:
+            text = core_path.read_text(encoding="utf-8", errors="ignore")
+        except OSError as exc:
+            result.errors.append(f"Cannot read cfgeconomycore.xml: {exc}")
+            result.success = False
+            return result
+
+        try:
+            root = ET.fromstring(text)
+        except ET.ParseError as exc:
+            result.errors.append(f"cfgeconomycore.xml parse error: {exc}")
+            result.success = False
+            return result
+
+        existing_ce = root.findall("ce")
+        if not existing_ce:
+            # DayZ loads the standard mission CE files by default when no <ce>
+            # sections exist (matching stock cfgeconomycore.xml).  Adding a
+            # partial <ce> section here can switch the server into explicit-routing
+            # mode and break loading of unreferenced files.  Leave the core file
+            # untouched in this case.
+            result.messages.append(
+                "cfgeconomycore.xml has no <ce> sections; relying on DayZ default "
+                "file loading"
+            )
+            return result
+
+        changed = False
+        for target_path in modified_files:
+            if target_path == core_path:
+                continue
+            try:
+                rel_path = target_path.relative_to(mission_dir).as_posix()
+            except ValueError:
+                continue
+            if "/" in rel_path:
+                folder, name = rel_path.rsplit("/", 1)
+            else:
+                folder, name = "", rel_path
+            type_attr = self._ce_type_for_file(name)
+            if not type_attr:
+                continue
+
+            already_referenced = False
+            for ce in root.findall("ce"):
+                if ce.get("folder", "") != folder:
+                    continue
+                for file_elem in ce.findall("file"):
+                    if file_elem.get("name") == name:
+                        already_referenced = True
+                        break
+                if already_referenced:
+                    break
+
+            if already_referenced:
+                continue
+
+            ce_elem = None
+            for ce in root.findall("ce"):
+                if ce.get("folder", "") == folder:
+                    ce_elem = ce
+                    break
+            if ce_elem is None:
+                ce_elem = ET.SubElement(root, "ce", {"folder": folder})
+            ET.SubElement(ce_elem, "file", {"name": name, "type": type_attr})
+            changed = True
+            result.messages.append(
+                f"Added <ce> reference for {rel_path} (type={type_attr})"
+            )
+
+        if changed:
+            backup_path = self._backup_file(core_path)
+            if backup_path:
+                result.backups.append(backup_path)
+            try:
+                core_path.write_text(self._serialize_et(root), encoding="utf-8")
+                result.modified_files.append(core_path)
+            except OSError as exc:
+                result.errors.append(f"Failed to update cfgeconomycore.xml: {exc}")
+                result.success = False
+                return result
+
+        final_text = core_path.read_text(encoding="utf-8", errors="ignore")
+        validation = validate_cfgeconomycore(final_text)
+        for warning in validation.warnings:
+            result.warnings.append(f"cfgeconomycore.xml: {warning}")
+        if not validation.ok:
+            for error in validation.errors:
+                result.errors.append(f"cfgeconomycore.xml: {error}")
+            result.success = False
+
+        return result
+
+    # ------------------------------------------------------------------
+    # DayZ <ce> sections use a specific set of type tokens.  Note that
+    # cfglimitsdefinition*.xml use "limits" / "limitsuser", even though the
+    # root element is <lists> / <user_lists>.
+    _CE_TYPE_FOR_FILE: Dict[str, str] = {
+        "types.xml": "types",
+        "cfgspawnabletypes.xml": "spawnabletypes",
+        "events.xml": "events",
+        "cfgeventspawns.xml": "eventposdef",
+        "economy.xml": "economy",
+        "cfglimitsdefinition.xml": "limits",
+        "cfglimitsdefinitionuser.xml": "limitsuser",
+        "cfgrandompresets.xml": "randompresets",
+        "cfgenvironment.xml": "environment",
+    }
+
+    # Standard CE files that DayZ loads by default when cfgeconomycore.xml has
+    # no <ce> sections.  If a mission already uses <ce>, these are the typical
+    # references that should exist.
+    _STANDARD_CE_FILES: Dict[str, str] = {
+        "db/types.xml": "types",
+        "db/events.xml": "events",
+        "cfgspawnabletypes.xml": "spawnabletypes",
+        "cfgeventspawns.xml": "eventposdef",
+    }
+
     # ------------------------------------------------------------------
     # Merge logic
     # ------------------------------------------------------------------
+
     def apply_integration(
         self,
         mod_folders: List[Path],
         active_mods: Optional[Set[str]] = None,
+        target_name: Optional[str] = None,
     ) -> ModIntegrationResult:
         """Merge XML fragments from active mods into the instance mission files.
+
+        Each fragment is validated and repaired before it is merged.  After
+        merging, the resulting mission XML is validated again and the
+        mission's ``cfgeconomycore.xml`` is updated to reference any modified
+        files so DayZ actually loads them.
 
         Args:
             mod_folders: List of resolved mod folder paths.
@@ -226,7 +464,7 @@ class ModIntegrationManager:
             ModIntegrationResult describing what was changed.
         """
         result = ModIntegrationResult(success=True)
-        mission_dir = self._find_mission_dir()
+        mission_dir = self._find_mission_dir(target_name=target_name)
         if mission_dir is None:
             result.success = False
             result.errors.append(
@@ -234,35 +472,48 @@ class ModIntegrationManager:
             )
             return result
 
-        # Group fragments by target mission file.
-        targets: Dict[Path, List[Tuple[Path, str]]] = {}
+        # Group fragments by target mission file.  Fragments that failed
+        # validation/repair are logged as warnings and skipped.
+        targets: Dict[Path, List[Tuple[Path, str, Optional[str]]]] = {}
         for mod_folder in mod_folders:
             link_name = "@" + mod_folder.name.lstrip("@")
             if active_mods is not None and link_name not in active_mods:
                 continue
 
             fragments = self.scan_mod(mod_folder)
-            if not fragments:
-                result.messages.append(f"{link_name}: no XML fragments found")
+            usable_fragments = [f for f in fragments if f.ok]
+            for fragment in fragments:
+                if not fragment.ok:
+                    result.warnings.append(
+                        f"{link_name}: {fragment.source_path.name} "
+                        f"{fragment.validation_message}"
+                    )
+
+            if not usable_fragments:
+                if not fragments:
+                    result.messages.append(f"{link_name}: no XML fragments found")
                 continue
 
-            for fragment in fragments:
+            for fragment in usable_fragments:
                 target_path = self._resolve_target_path(
                     mission_dir, fragment.target_mission_path
                 )
                 if target_path not in targets:
                     targets[target_path] = []
-                targets[target_path].append((fragment.source_path, link_name))
+                targets[target_path].append(
+                    (fragment.source_path, link_name, fragment.source_text)
+                )
+                status = " (repaired)" if fragment.repaired else ""
                 result.messages.append(
                     f"{link_name}: will merge {fragment.source_path.name} -> "
-                    f"{fragment.target_mission_path}"
+                    f"{fragment.target_mission_path}{status}"
                 )
 
         if not targets:
             result.messages.append("No mod XML fragments to merge.")
             return result
 
-        # Backup and merge each target file.
+        # Backup and merge each target file, then validate the merged result.
         for target_path, sources in targets.items():
             if not target_path.exists():
                 result.warnings.append(
@@ -270,7 +521,7 @@ class ModIntegrationManager:
                 )
                 continue
 
-            backup_path = self._backup_file(target_path)
+            backup_path = self._backup_file(target_path, mission_dir=mission_dir)
             if backup_path:
                 result.backups.append(backup_path)
 
@@ -284,6 +535,39 @@ class ModIntegrationManager:
             except Exception as exc:
                 result.success = False
                 result.errors.append(f"Failed to merge into {target_path}: {exc}")
+                continue
+
+            # Final validation of the merged mission file.
+            expected_root = self._expected_root_for_target(target_path)
+            if expected_root:
+                final_text = target_path.read_text(encoding="utf-8", errors="ignore")
+                validation = validate_mission_xml(final_text, expected_root)
+                for warning in validation.warnings:
+                    result.warnings.append(f"{target_path.name}: {warning}")
+                if not validation.ok:
+                    for error in validation.errors:
+                        result.errors.append(f"{target_path.name}: {error}")
+                    result.success = False
+                    if backup_path:
+                        try:
+                            shutil.copy2(backup_path, target_path)
+                            result.messages.append(
+                                f"Restored {target_path.name} due to validation failure"
+                            )
+                        except OSError as exc:
+                            result.errors.append(
+                                f"Could not restore {target_path.name}: {exc}"
+                            )
+
+        # Ensure cfgeconomycore.xml references every file we touched so DayZ
+        # actually loads the merged content.
+        if result.modified_files:
+            ce_result = self._ensure_ce_references(mission_dir, result.modified_files)
+            result.messages.extend(ce_result.messages)
+            result.warnings.extend(ce_result.warnings)
+            result.errors.extend(ce_result.errors)
+            if not ce_result.ok:
+                result.success = False
 
         if result.ok:
             self.save_state(
@@ -294,14 +578,17 @@ class ModIntegrationManager:
 
         return result
 
-    def _backup_file(self, target_path: Path) -> Optional[Path]:
+    def _backup_file(
+        self, target_path: Path, mission_dir: Optional[Path] = None
+    ) -> Optional[Path]:
         """Create a pristine backup of a mission file if one doesn't exist."""
         backup_dir = self.instance_root / "backups" / "mission"
         backup_dir.mkdir(parents=True, exist_ok=True)
 
         # Preserve the relative mission path in the backup filename so we can
         # restore to the correct location later.
-        mission_dir = self._find_mission_dir()
+        if mission_dir is None:
+            mission_dir = self._find_mission_dir()
         if mission_dir is None:
             return None
         try:
@@ -327,9 +614,13 @@ class ModIntegrationManager:
     def _merge_fragments(
         self,
         target_path: Path,
-        sources: List[Tuple[Path, str]],
+        sources: List[Tuple[Path, str, Optional[str]]],
     ) -> bool:
         """Merge XML fragments into a target file, avoiding duplicates.
+
+        Args:
+            sources: List of ``(source_path, link_name, source_text)`` tuples.
+                *source_text* may be ``None`` to read the file on demand.
 
         Returns:
             True if the target file was modified, False otherwise.
@@ -337,8 +628,12 @@ class ModIntegrationManager:
         target_text = target_path.read_text(encoding="utf-8", errors="ignore")
         original_text = target_text
 
-        for source_path, link_name in sources:
-            source_text = source_path.read_text(encoding="utf-8", errors="ignore")
+        for source_path, link_name, provided_text in sources:
+            source_text = (
+                provided_text
+                if provided_text is not None
+                else source_path.read_text(encoding="utf-8", errors="ignore")
+            )
             target_tag = self._resolve_target_root_tag(target_path, target_text)
             root_tag = self._peek_root_tag(source_text)
             if not root_tag:
@@ -374,15 +669,15 @@ class ModIntegrationManager:
             "cfgeventspawns.xml": "eventposdef",
             "events.xml": "events",
             "economy.xml": "economy",
-            "cfglimitsdefinition.xml": "limits",
-            "cfglimitsdefinitionuser.xml": "limitss",
+            "cfglimitsdefinition.xml": "lists",
+            "cfglimitsdefinitionuser.xml": "user_lists",
             "cfgrandompresets.xml": "randompresets",
-            "cfgenvironment.xml": "environment",
-            "mapgroupproto.xml": "mapgroupproto",
-            "mapgrouppos.xml": "mapgrouppos",
-            "mapgroupcluster.xml": "mapgroupcluster",
-            "mapgroupdirt.xml": "mapgroupdirt",
-            "mapclusterproto.xml": "mapclusterproto",
+            "cfgenvironment.xml": "env",
+            "mapgroupproto.xml": "prototype",
+            "mapgrouppos.xml": "map",
+            "mapgroupcluster.xml": "map",
+            "mapgroupdirt.xml": "map",
+            "mapclusterproto.xml": "prototype",
             "cfgplayerspawnpoints.xml": "playerspawnpoints",
         }.get(target_path.name.lower())
         if name_hint:

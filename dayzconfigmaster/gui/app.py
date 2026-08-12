@@ -776,6 +776,50 @@ class DayzConfigMasterApp:
         finally:
             self._clear_busy()
 
+    def _show_copyable_error(self, title: str, message: str) -> None:
+        """Show an error dialog whose text can be selected and copied.
+
+        Tkinter's messagebox does not allow text selection, which makes it
+        impossible for users to paste long validation errors.  This dialog
+        uses a read-only text widget with a copy-to-clipboard button.
+        """
+        try:
+            dialog = tk.Toplevel(self.root)
+            dialog.title(title)
+            dialog.geometry("800x400")
+            dialog.transient(self.root)
+            dialog.grab_set()
+
+            frame = ttk.Frame(dialog)
+            frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+            text = tk.Text(frame, wrap=tk.WORD, height=15)
+            scrollbar = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=text.yview)
+            text.configure(yscrollcommand=scrollbar.set)
+            text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+            text.insert(tk.END, message)
+            text.config(state=tk.DISABLED)
+
+            button_frame = ttk.Frame(dialog)
+            button_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+            def _copy() -> None:
+                dialog.clipboard_clear()
+                dialog.clipboard_append(message)
+                dialog.update()  # keeps clipboard alive after dialog closes
+
+            ttk.Button(button_frame, text="Copy to Clipboard", command=_copy).pack(side=tk.LEFT, padx=5)
+            ttk.Button(button_frame, text="OK", command=dialog.destroy).pack(side=tk.RIGHT, padx=5)
+
+            dialog.update_idletasks()
+            dialog.lift(self.root)
+        except Exception:
+            # Fall back to a plain messagebox if anything goes wrong building
+            # the custom dialog.
+            messagebox.showerror(title, message)
+
     def _scan_and_load_existing_config(self):
         """
         Scan for existing DayZ server configuration files on startup.
@@ -5529,18 +5573,34 @@ Requirements:
         values[0] = "☑" if values[0] == "☐" else "☐"
         self._integration_tree.item(item, values=values)
 
-    def _apply_mod_integration_to_instance(self, instance_root: Path) -> None:
+    def _apply_mod_integration_to_instance(
+        self,
+        instance_root: Path,
+        target_name: Optional[str] = None,
+    ) -> "ModIntegrationResult":
         """Automatically apply persisted mod integration to an instance root.
 
         This is called during server startup preparation. It reads the
         integration state saved by the Mod Integration tab and merges the
         selected mod XML fragments into the instance mission files.
+
+        Args:
+            target_name: Optional explicit mission folder name (e.g.
+                ``dayzOffline.enoch``).  When omitted, the manager parses
+                ``serverDZ_*.cfg`` to find the active template.
+
+        Returns:
+            The :class:`ModIntegrationResult` so the caller can log warnings
+            and abort startup if validation failed.
         """
+        from dayzconfigmaster.mods.integration import ModIntegrationResult
+
+        result = ModIntegrationResult(success=True)
         mgr = ModIntegrationManager(instance_root)
         state = mgr.load_state()
         active_mods = set(state.get("active_mods", []))
         if not active_mods:
-            return
+            return result
 
         mod_folders: List[Path] = []
         for item in instance_root.iterdir():
@@ -5551,9 +5611,11 @@ Requirements:
                     mod_folders.append(item)
 
         if not mod_folders:
-            return
+            return result
 
-        mgr.apply_integration(mod_folders, active_mods=active_mods)
+        return mgr.apply_integration(
+            mod_folders, active_mods=active_mods, target_name=target_name
+        )
 
     def _ensure_instance_storage_backup(
         self,
@@ -6387,6 +6449,7 @@ Requirements:
 
         make_check("deploy_mission_folder", "Deploy fresh mission folder from base game (WIPES mission folder)", options.deploy_mission_folder)
         make_check("backup_storage_before_start", "Backup players.db & storage_1/data before start", options.backup_storage_before_start)
+        make_check("clear_ce_storage_on_start", "Clear stale CE economy storage (forces loot rebuild)", options.clear_ce_storage_on_start)
         make_check("validate_against_sandbox", "Validate mission XML against sandbox factory files", options.validate_against_sandbox)
         make_check("sanitize_mission_economy", "Sanitize mission economy files (quarantine corrupt root XML)", options.sanitize_mission_economy)
         make_check("normalize_aircraft_lifetimes", "Normalize aircraft lifetimes", options.normalize_aircraft_lifetimes)
@@ -6439,6 +6502,7 @@ Requirements:
             new_options = DeploymentOptions(
                 deploy_mission_folder=vars_dict["deploy_mission_folder"].get(),
                 backup_storage_before_start=vars_dict["backup_storage_before_start"].get(),
+                clear_ce_storage_on_start=vars_dict["clear_ce_storage_on_start"].get(),
                 validate_against_sandbox=vars_dict["validate_against_sandbox"].get(),
                 sanitize_mission_economy=vars_dict["sanitize_mission_economy"].get(),
                 normalize_aircraft_lifetimes=vars_dict["normalize_aircraft_lifetimes"].get(),
@@ -6721,7 +6785,29 @@ Requirements:
 
             if options.apply_mod_integration:
                 try:
-                    self._apply_mod_integration_to_instance(instance_root)
+                    mod_result = self._apply_mod_integration_to_instance(
+                        instance_root,
+                        target_name=mission_target_name,
+                    )
+                    for msg in mod_result.messages:
+                        self.log_text.insert(
+                            tk.END,
+                            f"[{self._get_timestamp()}] Mod integration: {msg}\n",
+                        )
+                    for warning in mod_result.warnings:
+                        self.log_text.insert(
+                            tk.END,
+                            f"[{self._get_timestamp()}] Mod integration warning: "
+                            f"{warning}\n",
+                        )
+                    for error in mod_result.errors:
+                        self.log_text.insert(
+                            tk.END,
+                            f"[{self._get_timestamp()}] Mod integration ERROR: "
+                            f"{error}\n",
+                        )
+                    if not mod_result.ok:
+                        return None, f"Mod integration failed: {'; '.join(mod_result.errors)}"
                 except Exception as exc:
                     return None, f"Failed to apply mod integration: {exc}"
 
@@ -6764,6 +6850,97 @@ Requirements:
 
             # Save the manifest only after a successful full deployment.
             manifest_mgr.save(current_manifest)
+
+        # Final validation: every mission XML file that could be fed to DayZ
+        # must parse and have the expected structure.  This catches broken mod
+        # XML that survived earlier repairs or was introduced by other steps.
+        if mission_target_name:
+            final_ok, final_msgs = self._validate_final_mission_xml(
+                instance_root, mission_target_name
+            )
+            for msg in final_msgs:
+                self.log_text.insert(
+                    tk.END,
+                    f"[{self._get_timestamp()}] Instance {instance_id} "
+                    f"final XML: {msg}\n",
+                )
+            if not final_ok:
+                error_summary = "; ".join(
+                    msg for msg in final_msgs
+                    if "ERROR" in msg or "Cannot read" in msg or "MISSING" in msg
+                )
+                return (
+                    None,
+                    f"Final mission XML validation failed. Aborting start. {error_summary}",
+                    None,
+                    None,
+                )
+
+            # Central Economy caches parsed XML in storage_1/data/*.bin.  If the
+            # source XML changed since the last start, the stale cache will be
+            # restored and new/updated types (especially weapons added by mods)
+            # will be ignored with "Type ... will be ignored" warnings.  Detect
+            # that case and clear the cache after backing it up.
+            if mission_target_name:
+                from dayzconfigmaster.economy.ce_storage import (
+                    backup_and_clear_ce_storage,
+                    economy_storage_needs_refresh,
+                    store_economy_hashes,
+                )
+
+                stale, current_hashes, _previous_hashes = economy_storage_needs_refresh(
+                    instance_root, mission_target_name
+                )
+                if stale:
+                    if options.clear_ce_storage_on_start:
+                        ce_ok, ce_msg, _ce_backup = backup_and_clear_ce_storage(
+                            instance_root,
+                            mission_target_name,
+                            backup_label=f"before_start",
+                        )
+                        self.log_text.insert(
+                            tk.END,
+                            f"[{self._get_timestamp()}] Instance {instance_id} "
+                            f"CE storage: {ce_msg}\n",
+                        )
+                        if not ce_ok:
+                            return None, f"Failed to clear CE storage: {ce_msg}", None, None
+                    else:
+                        warn_msg = (
+                            "CE economy storage appears stale (mission XML changed "
+                            "since last start). Weapons/loot may not spawn until "
+                            "storage_1/data/*.bin is deleted."
+                        )
+                        self.log_text.insert(
+                            tk.END,
+                            f"[{self._get_timestamp()}] WARNING Instance {instance_id}: "
+                            f"{warn_msg}\n",
+                        )
+                        if options.require_confirmation_for_xml_changes:
+                            if messagebox.askyesno(
+                                "Stale CE Storage",
+                                f"{warn_msg}\n\n"
+                                "Delete storage_1/data/*.bin now to force a rebuild?",
+                            ):
+                                ce_ok, ce_msg, _ce_backup = backup_and_clear_ce_storage(
+                                    instance_root,
+                                    mission_target_name,
+                                    backup_label="before_start",
+                                )
+                                self.log_text.insert(
+                                    tk.END,
+                                    f"[{self._get_timestamp()}] Instance {instance_id} "
+                                    f"CE storage: {ce_msg}\n",
+                                )
+                                if not ce_ok:
+                                    return None, f"Failed to clear CE storage: {ce_msg}", None, None
+                            else:
+                                self.log_text.insert(
+                                    tk.END,
+                                    f"[{self._get_timestamp()}] Instance {instance_id}: "
+                                    "continuing with existing CE storage.\n",
+                                )
+                store_economy_hashes(instance_root, current_hashes)
 
         # Generate the config content for this instance.
         if cfg_content is None or not cfg_content:
@@ -7483,6 +7660,106 @@ Requirements:
             messages.append("Mission XML matches sandbox factory files.")
         return ok, messages
 
+    @staticmethod
+    def _validate_final_mission_xml(
+        instance_root: Path,
+        target_name: str,
+    ) -> Tuple[bool, List[str]]:
+        """Final well-formedness and structural validation before server start.
+
+        Parses every CE file that could have been touched by deployment steps
+        and validates that ``cfgeconomycore.xml`` references them.  This is the
+        last line of defence against broken mod XML corrupting the server.
+
+        Returns:
+            (ok, messages) where ok is False if any file is invalid.
+        """
+        from dayzconfigmaster.mods.xml_repair import (
+            TARGET_TO_ROOT_TAG,
+            audit_types_xml,
+            summarize_types_audit,
+            validate_cfgeconomycore,
+            validate_mission_xml,
+        )
+
+        mission_dir = instance_root / "mpmissions" / target_name
+        files_to_check: List[Tuple[Path, str]] = []
+        for rel, root_tag in TARGET_TO_ROOT_TAG.items():
+            path = mission_dir / rel
+            if path.exists():
+                files_to_check.append((path, root_tag))
+
+        messages: List[str] = []
+        ok = True
+        for path, root_tag in files_to_check:
+            try:
+                text = path.read_text(encoding="utf-8", errors="ignore")
+            except OSError as exc:
+                messages.append(f"Cannot read {path.name}: {exc}")
+                ok = False
+                continue
+            result = validate_mission_xml(text, root_tag)
+            if result.ok:
+                msg = result.message
+                if result.warnings:
+                    msg += "; " + "; ".join(result.warnings)
+                messages.append(f"{path.name}: {msg}")
+            else:
+                messages.append(f"{path.name}: {result.message}")
+                for warning in result.warnings:
+                    messages.append(f"{path.name}: WARNING {warning}")
+                for error in result.errors:
+                    messages.append(f"{path.name}: ERROR {error}")
+                ok = False
+
+        core_path = mission_dir / "cfgeconomycore.xml"
+        if core_path.exists():
+            try:
+                core_text = core_path.read_text(encoding="utf-8", errors="ignore")
+            except OSError as exc:
+                messages.append(f"Cannot read cfgeconomycore.xml: {exc}")
+                ok = False
+            else:
+                core_result = validate_cfgeconomycore(core_text)
+                if core_result.ok:
+                    msg = core_result.message
+                    if core_result.warnings:
+                        msg += "; " + "; ".join(core_result.warnings)
+                    messages.append(f"cfgeconomycore.xml: {msg}")
+                else:
+                    messages.append(f"cfgeconomycore.xml: {core_result.message}")
+                    for warning in core_result.warnings:
+                        messages.append(f"cfgeconomycore.xml: WARNING {warning}")
+                    for error in core_result.errors:
+                        messages.append(f"cfgeconomycore.xml: ERROR {error}")
+                    ok = False
+
+        types_path = mission_dir / "db" / "types.xml"
+        if types_path.exists():
+            try:
+                types_text = types_path.read_text(encoding="utf-8", errors="ignore")
+                audit = audit_types_xml(types_text)
+                messages.append(f"types.xml audit: {summarize_types_audit(audit)}")
+                if audit.weapon_types == 0:
+                    messages.append(
+                        "types.xml audit: WARNING no weapon entries detected"
+                    )
+                if audit.zero_nominal_weapons + audit.missing_nominal_weapons > 0:
+                    names = audit.zero_nominal_names[:5]
+                    extra = (
+                        f" (+{len(audit.zero_nominal_names) - 5} more)"
+                        if len(audit.zero_nominal_names) > 5
+                        else ""
+                    )
+                    messages.append(
+                        f"types.xml audit: WARNING weapons that cannot spawn: "
+                        f"{', '.join(names)}{extra}"
+                    )
+            except OSError as exc:
+                messages.append(f"Cannot audit types.xml: {exc}")
+
+        return ok, messages
+
     def _repair_nominal_values_on_deploy(
         self,
         instance_root: Path,
@@ -7571,7 +7848,7 @@ Requirements:
         """Internal implementation: start a single DayZ server instance."""
         valid, error = self._validate_dayz_server_path()
         if not valid:
-            messagebox.showerror("Error", error)
+            self._show_copyable_error("Error", error)
             return
 
         instance_id = instance['id'].get()
@@ -7594,7 +7871,7 @@ Requirements:
         backup_ok, backup_msg, backup_path = self._ensure_instance_storage_backup(instance)
         self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {backup_msg}\n")
         if not backup_ok:
-            messagebox.showerror("Backup Error", backup_msg)
+            self._show_copyable_error("Backup Error", backup_msg)
             return
 
         # Run filesystem/database preflight checks before deployment.
@@ -7606,7 +7883,7 @@ Requirements:
         # Ensure config and instance files are written in-place before starting.
         instance_root, config_filename, deployed_mods_str, profile_dir = self._prepare_instance_files(instance)
         if instance_root is None:
-            messagebox.showerror("Instance Preparation Error", config_filename)
+            self._show_copyable_error("Instance Preparation Error", config_filename)
             return
 
         try:
@@ -7703,12 +7980,12 @@ Requirements:
                     tk.END,
                     f"[{self._get_timestamp()}] ERROR Instance {instance_id}: {msg}\n"
                 )
-                messagebox.showerror("Server Error", msg)
+                self._show_copyable_error("Server Error", msg)
         except Exception as e:
             error_msg = f"Error starting instance {instance_id}: {str(e)}"
             self.status_var.set(error_msg)
             self.log_text.insert(tk.END, f"[{self._get_timestamp()}] ERROR: {error_msg}\n")
-            messagebox.showerror("Server Error", error_msg)
+            self._show_copyable_error("Server Error", error_msg)
 
     def _stop_single_instance(self, instance: Dict[str, Any]):
         """Stop a single DayZ server instance."""
@@ -7764,7 +8041,7 @@ Requirements:
         """Internal implementation: start all enabled instances."""
         valid, error = self._validate_dayz_server_path()
         if not valid:
-            messagebox.showerror("Error", error)
+            self._show_copyable_error("Error", error)
             return
 
         dayz_path = self.dayz_path_var.get().strip()
@@ -7815,6 +8092,10 @@ Requirements:
                     self.log_text.insert(
                         tk.END,
                         f"[{self._get_timestamp()}] ERROR Instance {instance_id}: {config_filename}\n"
+                    )
+                    self._show_copyable_error(
+                        f"Instance {instance_id} Preparation Error",
+                        config_filename,
                     )
                     continue
 
@@ -7989,7 +8270,7 @@ Requirements:
         """Internal implementation: start the DayZ server."""
         valid, error = self._validate_dayz_server_path()
         if not valid:
-            messagebox.showerror("Error", error)
+            self._show_copyable_error("Error", error)
             return
 
         if self._single_server_running:
@@ -8024,7 +8305,7 @@ Requirements:
         backup_ok, backup_msg, backup_path = self._ensure_instance_storage_backup(pseudo_instance)
         self.log_text.insert(tk.END, f"[{self._get_timestamp()}] {backup_msg}\n")
         if not backup_ok:
-            messagebox.showerror("Backup Error", backup_msg)
+            self._show_copyable_error("Backup Error", backup_msg)
             return
 
         # Run filesystem/database preflight checks before deployment.
@@ -8037,7 +8318,7 @@ Requirements:
             pseudo_instance, cfg_content=cfg_content
         )
         if instance_root is None:
-            messagebox.showerror("Instance Preparation Error", config_path)
+            self._show_copyable_error("Instance Preparation Error", config_path)
             return
         self._last_instance_root = instance_root
 

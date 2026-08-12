@@ -42,6 +42,7 @@ class DeploymentOptions:
     apply_spawn_loadout: bool = False
     apply_mod_settings_overrides: bool = False
     backup_storage_before_start: bool = True
+    clear_ce_storage_on_start: bool = True
     validate_against_sandbox: bool = True
     require_confirmation_for_xml_changes: bool = True
 
@@ -55,6 +56,7 @@ class DeploymentOptions:
             "apply_spawn_loadout": self.apply_spawn_loadout,
             "apply_mod_settings_overrides": self.apply_mod_settings_overrides,
             "backup_storage_before_start": self.backup_storage_before_start,
+            "clear_ce_storage_on_start": self.clear_ce_storage_on_start,
             "validate_against_sandbox": self.validate_against_sandbox,
             "require_confirmation_for_xml_changes": self.require_confirmation_for_xml_changes,
         }
@@ -72,6 +74,7 @@ class DeploymentOptions:
             apply_spawn_loadout=data.get("apply_spawn_loadout", False),
             apply_mod_settings_overrides=data.get("apply_mod_settings_overrides", False),
             backup_storage_before_start=data.get("backup_storage_before_start", True),
+            clear_ce_storage_on_start=data.get("clear_ce_storage_on_start", True),
             validate_against_sandbox=data.get("validate_against_sandbox", True),
             require_confirmation_for_xml_changes=data.get(
                 "require_confirmation_for_xml_changes", True
