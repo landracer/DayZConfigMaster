@@ -76,10 +76,10 @@ All notable changes to this project will be documented in this file.
 ### Removed
 
 - Stopped tracking compiled Python bytecode (`__pycache__`, `*.pyc`) and
-  external reference repositories under `references/git/`.
+  external reference repositories under `references/`.
 
 ### Repository Hygiene
 
 - Added `.gitignore` covering Python caches, virtual environments, test
   caches, build artifacts, runtime state (`jim.json`, `instances/`, `logs/`,
-  `storage_1/`), and heavy external bundles (`steamcmd/`, `references/git/`).
+  `storage_1/`), and heavy external bundles (`steamcmd/`, `references/`).

@@ -1,211 +1,133 @@
-# House Cleaning & Scheduling
+# House-Cleaning & Scheduling
 
-This guide explains how to use the House Cleaning & Scheduling tab for server maintenance, including scheduled restarts and instance storage backups.
-
-## Overview
-
-The **House Cleaning** tab helps you manage server health through:
-
-- 🔄 **Memory Cleanup**: Schedule regular server restarts to flush memory leaks
-- 📊 **Performance Stability**: Maintain consistent server performance throughout the day
-- 🎮 **Player Experience**: Prevent unexpected crashes during gameplay
-- 💾 **Instance Storage Backups**: Backup player data and world progress
+This guide covers server restart scheduling and memory leak management for DayZ servers.
 
 ## Why Schedule Server Restarts?
 
-DayZ servers accumulate memory leaks over time as:
-- Log files grow with each server session
-- Player activity and item spawning creates dynamic memory usage
-- Server processes hold onto cached data that's not properly released
+DayZ servers accumulate memory leaks over time, causing RAM usage to gradually increase until the server crashes. Scheduled restarts are essential for:
 
-### Memory Leak Cycle
+### Benefits of Regular Restarts
 
-```
-Server Start → Memory: ~500 MB  
-↓ (4 hours of gameplay)  
-Memory: ~1.2 GB (players joining, items spawned)  
-↓ (8+ hours)  
-Memory: ~1.8-2.0 GB (near crash threshold)  
-↓ (Restart scheduled)  
-Memory: ~500 MB (fresh start)
-```
+• **🔄 Memory Cleanup**: Flush accumulated memory leaks each restart
+• **📊 Performance Stability**: Maintain consistent performance throughout the day  
+• **🎮 Player Experience**: Prevent unexpected crashes during gameplay
+• **💾 Database Integrity**: Regular restarts help maintain clean database state
 
-### Recommended Restart Schedule
+## Recommended Restart Intervals
 
-| Server Type | Restart Interval | Memory Management |
-|-------------|------------------|-------------------|
-| **Standard servers** (1-30 players) | Every 4-6 hours | Prevents memory accumulation |
-| **High-population servers** (30+ players) | Every 3-4 hours | More activity = more leaks |
-| **Multi-instance setups** ⚠️ | Staggered by 30+ min | Prevents CPU/disk spikes |
+| Server Type | Restart Interval | Reason |
+|-------------|-----------------|--------|
+| Standard (10-30 players) | Every 4-6 hours | Balanced memory management |
+| High-population (30-50 players) | Every 3-4 hours | More activity = faster RAM growth |
+| Multi-instance setups | Staggered by 30+ min | Prevent simultaneous resource spikes |
 
 ## Memory Monitoring
 
-Enable memory logging to track trends over time:
+### Enable Memory Logging
 
-```
-Log Memory: 1 (Enabled)
-```
+Add to your `serverDZ.cfg`:
 
-With `logMemory = 1` enabled, check `logs/servername_memory.log` for memory usage trends and identify when your server approaches the crash threshold.
-
-### Memory Threshold Settings
-
-Set alerts when the server exceeds specified memory limits:
-- **Warning threshold**: 1600 MB (1.5 GB)
-- **Critical threshold**: 2400 MB (2.3 GB)
-
-## Restart Scheduling
-
-### Manual vs Automated Restarts
-
-| Method | Pros | Cons |
-|--------|------|------|
-| **Manual restarts** | Full control, immediate execution | Requires admin presence |
-| **Automated via cron** | No admin needed, consistent timing | Setup required |
-
-### Restart Timing Best Practices
-
-```
-Instance 1: Every day at 04:00 (4 AM)
-Instance 2: Every day at 04:30 (4:30 AM)  
-Instance 3: Every day at 05:00 (5:00 AM)
+```cpp
+logMemory = 1;
 ```
 
-This staggered approach:
-- Prevents simultaneous Steam CMD logins
-- Reduces bandwidth spikes
-- Spreads resource usage across time
+This creates a memory log file at: `logs/servername_memory.log`
 
-## Instance Storage Backup & Restore
+### Memory Kill Limit (Watchdog)
 
-### What Gets Backed Up?
+DayzConfigMaster can automatically kill a runaway server before it freezes the
+host. In **Server Control → General Settings → Single Server**, set the
+**Memory Kill Limit (GB)** field to a value slightly below your system's
+available RAM (default: `15` GB).
 
-The storage_1 folder contains critical player data:
+When the server process tree exceeds this limit, DayzConfigMaster:
 
-| Folder | Contents |
-|--------|----------|
-| `storage_1/players.db` | Player profiles and character data |
-| `storage_1/data/*.bin` | Current world state (buildings, items) |
-| `storage_1/backup/*` | Automatic backup snapshots |
-| `storage_1/expansion/` | Expansion mod data |
+1. Logs the violation to `<instance_root>/logs/memory_watchdog.log`.
+2. Terminates the entire process tree (main binary + `enfmain` children).
+3. Updates the GUI status bar and log viewer.
 
-### Scanning for Storage Folders
+The watchdog runs in a background thread, so it works even if the GUI becomes
+unresponsive.
 
-Click **🔄 Scan Storage Folders** to detect all storage_1 directories:
+### Monitor for Memory Issues
 
-```
-Detected Instance Storage Directories
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+When memory usage consistently hits limits before the scheduled restart:
+- Reduce player count per instance
+- Remove resource-heavy mods
+- Consider fewer maps running simultaneously
+- Increase server RAM allocation
+- Review `<instance_root>/logs/memory_watchdog.log` to find when growth starts
 
-Instance  Map        Storage Path
-───────── ────────── ───────────────────────────────
-server1   enoch      instances/server1/mpmissions/dayzOffline.enoch/storage_1
-server2   chernarusplus instances/server2/mpmissions/dayzOffline.chernarusplus/storage_1
-server3   namalsk    instances/server3/mpmissions/dayzOffline.namalsk/storage_1
-```
+## Multi-Instance Staggered Restarts
 
-### Backup Options
+For multiple instances on same hardware, offset restart times to prevent:
 
-#### 1. Individual Instance Backups (Recommended)
+• **CPU Spikes**: Multiple servers restarting simultaneously
+• **Disk I/O Bottlenecks**: All instances writing logs at once
+• **Steam CMD Conflicts**: Simultaneous Steam login attempts
 
-Each instance/map combination gets its own timestamped backup:
+### Recommended Schedule
 
-```
-backups/
-├── storage_server1_enoch_20241215_030000/
-│   ├── players.db
-│   ├── data/
-│   └── backup/
-└── storage_server2_chernarusplus_20241215_030000/
-    ├── players.db
-    ├── data/
-    └── backup/
-```
+| Instance | Restart Time |
+|----------|--------------|
+| Server 1 | Every day at 4:00 AM |
+| Server 2 | Every day at 4:30 AM |
+| Server 3 | Every day at 5:00 AM |
 
-#### 2. Bundle Server Backup
+### Using cron for Linux
 
-Backup everything "as-is" for complete server transfer/restore:
+```bash
+# Add to crontab -e
+# Instance 1: Restart daily at 4:00 AM
+0 4 * * * /path/to/restart.sh 1 >> /var/log/dayz-restarts.log 2>&1
 
-```
-backups/server_bundle_20241215_030000/
-├── instances/
-│   ├── server1/
-│   ├── server2/
-│   └── server3/
-└── backups/ (previous backups included)
+# Instance 2: Restart daily at 4:30 AM  
+30 4 * * * /path/to/restart.sh 2 >> /var/log/dayz-restarts.log 2>&1
+
+# Instance 3: Restart daily at 5:00 AM
+0 5 * * * /path/to/restart.sh 3 >> /var/log/dayz-restarts.log 2>&1
 ```
 
-### Perform Backup
+## Memory Usage Guidelines
 
-1. Scan storage folders first
-2. Select backup mode:
-   - **Individual**: Each instance has its own backup
-   - **Bundle**: Complete server snapshot
-3. Click **🚀 Perform Backup**
+| RAM Usage | Action Required |
+|-----------|-----------------|
+| < 70% before restart | Normal operation |
+| 70-90% before restart | Monitor closely, consider shorter interval |
+| > 90% before restart | Reduce player count or mods immediately |
 
-### Restore from Backup
+### Linux vs Windows Memory Overhead
 
-Future restores will use the backed-up storage_1 folder to restore player data and world state.
+• **Linux (headless)**: ~500 MB OS overhead
+• **Windows Server**: 2-4 GB OS overhead
 
-## Linux start.sh Generation
+For multi-instance setups, Linux is preferred due to lower memory overhead.
 
-Generate a multi-instance startup script for Linux:
+## Best Practices Summary
 
-```
+1. **Enable logMemory = 1** to track daily memory trends
+2. **Set restart interval** based on observed RAM growth patterns
+3. **Stagger multiple instances** by at least 30 minutes between restarts
+4. **Monitor logs** after each restart for issues
+5. **Adjust mod load** if instances consistently hit RAM limits
+6. **Test changes gradually** before applying to production servers
+
+## Linux start.sh Template with Restart Logic
+
+```bash
 #!/bin/bash
-# DayZ Server Multi-Instance Start Script (Linux)
-cd "$(dirname "$0")"
+# DayZ Server with Auto-Restart (Linux)
 
-echo "Starting DayZ server instances..."
-
-# Instance 1
-export HOME="$PWD/server1/.dayzhome"
-...
-./server1/DayZServer_instance_1 ...
-
-# Instance 2
-export HOME="$PWD/server2/.dayzhome"
-...
-./server2/DayZServer_instance_2 ...
+while true; do
+    echo "$(date): Starting server instance..."
+    
+    ./dayzserver -port=2302 -config=serverDZ.cfg \
+        -profiles=./profile -instanceId=1 \
+        -mod="@ModPack"
+    
+    echo "$(date): Server stopped, restarting in 5 seconds..."
+    sleep 5
+done
 ```
 
-## Best Practices
-
-### Daily Maintenance
-
-- Monitor memory logs for trends
-- Restart servers before reaching crash threshold
-- Keep backups of storage folders
-
-### Weekly Maintenance
-
-- Review and clean old backup files
-- Verify backup integrity
-- Check disk space usage
-
-### Monthly Maintenance
-
-- Archive old backups to external storage
-- Analyze player data growth patterns
-- Update restart intervals based on server performance
-
-## Troubleshooting
-
-### Server Keeps Crashing?
-
-1. Enable `logMemory = 1`
-2. Monitor memory log for growth pattern
-3. Reduce restart interval if crashes persist
-4. Check for mods causing excessive memory usage
-
-### Storage Folder Not Found?
-
-1. Ensure maps have been deployed (creates storage_1)
-2. Verify instances folder exists
-3. Check permissions on storage directories
-
-## Related Documentation
-
-- [Server Configuration](server-config.md) - Server settings
-- [Effects & Triggers](effects-triggers.md) - World configuration
-- [Modding](modding.md) - Mod management
+Use with cron to restart at specific times instead of infinite loop.

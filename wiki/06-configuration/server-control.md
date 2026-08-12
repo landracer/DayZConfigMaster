@@ -128,6 +128,91 @@ Steam P2P: 2304 (Game + 2)
 | 🛑 **Stop Server** | Gracefully stop the currently running server |
 | 🔄 **Restart Server** | Stop and restart the server |
 
+### Memory Kill Limit
+
+The **Memory Kill Limit (GB)** field sets a hard RSS ceiling for the entire
+server process tree (the main DayZ binary plus all `enfmain` children). If
+total resident memory exceeds this limit, DayzConfigMaster terminates the tree
+automatically.
+
+| Default | Recommended |
+|---------|-------------|
+| `15` GB | Set slightly below your system's available RAM (leave headroom for the OS and GUI) |
+
+The watchdog runs in a background thread, so it can still kill the server even
+if the GUI becomes unresponsive. Memory samples are logged to:
+
+```
+<instance_root>/logs/memory_watchdog.log
+```
+
+The log format is:
+
+```
+2026-07-13 14:32:10 | server | 4.21 GB / 15.00 GB | pids=[1234, 1245]
+```
+
+If the limit is exceeded, an additional line is written:
+
+```
+2026-07-13 14:32:15 | KILLING server: memory limit exceeded (15.32 GB)
+```
+
+Use this log to identify which mod or configuration causes memory growth after
+a restart.
+
+### Mod Command-Line Quoting
+
+DayZ's `-mod=...` argument uses semicolons to separate multiple mods. When the
+GUI launches the server in a terminal emulator, that command is passed through a
+shell. If the mod list is not quoted correctly, the shell interprets each
+semicolon as a command separator and tries to execute the mod IDs as separate
+commands.
+
+Symptoms of unquoted mod lists:
+- `server_console.log` contains lines like `@1582756848: command not found`
+- The server starts but only loads the first mod (or none at all)
+- Clients report missing mods or mod-list mismatches
+- The server hangs after `Loading landscape took: ...` because the mission
+  initializes with an incomplete mod set
+
+DayzConfigMaster now shell-quotes every argument before joining them for
+`gnome-terminal`, so `-mod=@Mod1;@Mod2;@Mod3` is passed to the DayZ binary as a
+single argument. You do not need to add quotes manually in the mod path field.
+
+### Mod Version Mismatches
+
+Some mod families (notably **DayZ Expansion**) ship multiple workshop items that
+must all be the same version. If one item is updated by Steam while another is
+not, the server can fail to compile mission scripts and never open its game
+port.
+
+Symptoms of a version mismatch:
+- Server process is running but port 2302 (or your configured port) never opens.
+- RPT log contains `SCRIPT (E): Can't compile "Mission" script module!`.
+- RPT log contains `Unknown type 'ExpansionViewController'` or similar.
+- Client hangs at the loading screen because it cannot connect.
+
+DayzConfigMaster now reads `version = "..."` from each mod's `meta.cpp`/`mod.cpp`
+and warns you before starting the server if it detects mismatched versions
+within a known mod family. The fix is to update all items in the family to the
+same version through Steam Workshop.
+
+### Startup Diagnostics
+
+After a server has been running for 60 seconds, DayzConfigMaster checks whether
+the configured game port is actually listening. If the port is not open, it
+scans the latest server RPT log for critical errors such as:
+
+- `Can't compile "Mission" script module!`
+- `Failed to load mission scripts!`
+- `Unknown type '...'`
+- `Mission script has no main function`
+
+If an error is found, a warning dialog shows the exact log line so you know why
+the server is not accepting connections. Use that message to fix the underlying
+mod, config, or mission issue before restarting.
+
 ### Single Server Example Configuration
 
 ```
@@ -257,36 +342,7 @@ for full details.
 
 ## Mission Folder Deployment
 
-The mission template in `serverDZ.cfg` must match an available mission folder exactly. DayzConfigMaster resolves the real internal world name from each workshop map's PBOs (e.g. `alteria` instead of the display name `Alteria`) and ensures the mission folder is reachable.
-
-### How World Names Are Resolved
-
-For workshop maps, DayzConfigMaster reads the map mod's PBOs to find the actual world name:
-
-- `world.pbo` / `terrain.pbo` are inspected for `worldName` or `.wrp` references.
-- The extracted name is cached and used for both the `template` in `serverDZ.cfg` and the mission folder name.
-
-Examples of display name → world name mappings:
-
-| Display Name | World Name | Mission Folder |
-|--------------|------------|----------------|
-| Namalsk Island | `namalsk` | `dayzOffline.namalsk` |
-| DeerIsle | `deerisle` | `dayzOffline.deerisle` |
-| Alteria | `alteria` | `dayzOffline.alteria` |
-| Raman | `raman` | `dayzOffline.raman` |
-| Banov | `banov` | `dayzOffline.banov` |
-| Esseker | `Esseker` | `dayzOffline.Esseker` |
-| TakistanPlus | `TakistanPlus` | `dayzOffline.TakistanPlus` |
-| Sarov Map | `Sarov` | `dayzOffline.Sarov` |
-| Stuart Island | `stuartisland` | `dayzOffline.stuartisland` |
-| Valning Map | `valning` | `dayzOffline.valning` |
-| Chiemsee | `Chiemsee` | `dayzOffline.Chiemsee` |
-| Winter Chernarus | `WinterChernarus` | `dayzOffline.WinterChernarus` |
-| Winter Livonia | `WinterLivonia` | `dayzOffline.WinterLivonia` |
-| Winter Chiemsee | `WinterChiemsee` | `dayzOffline.WinterChiemsee` |
-| Winter Valning | `WinterValning` | `dayzOffline.WinterValning` |
-
-> ⚠️ **Case matters on Linux.** The world name extracted from the PBO is used exactly as-is.
+The mission template in `serverDZ.cfg` must match an available mission folder. DayzConfigMaster resolves the real internal world name (e.g. `alteria` instead of the display name `Alteria`) and ensures the mission folder is reachable.
 
 ### Resolution Order
 
@@ -603,6 +659,7 @@ All `serverDZ.cfg` fields are grouped into compact `LabelFrame` sections with a 
 - **Mod Selection** — checkbox treeview showing mod name, workshop ID, and folder path
 - **Mod Paths** — semicolon-separated mod list with a Browse button
 - **Workshop Integration** — workshop directory and Scan Workshop button
+- **Mod Settings** — built-in editor that auto-discovers JSON/XML/CPP/HPP/TXT config files inside every workshop mod folder and the active mission folder; click **Refresh** to rescan after subscribing to new mods
 
 ### Multi-Instance Tab
 
@@ -669,19 +726,29 @@ Note: The old "Multi-Instance Manager", "Ban List & Players", and standalone log
 ### File Locations (Linux)
 
 ```
-Steam Common: /home/user/.local/share/Steam/steamapps/common/DayZServer/
-MP Missions:  /home/user/.local/share/Steam/steamapps/common/DayZServer/mpmissions/
-Profile Data: /home/user/.dayz/server1/profile/
-Logs:         /home/user/.dayz/server1/profile/logs/
+Steam Common:     /home/user/.steam/steam/steamapps/common/DayZServer/
+MP Missions:      /home/user/.steam/steam/steamapps/common/DayZServer/mpmissions/
+Client Install:   /home/user/.local/share/Steam/steamapps/common/DayZ/
+Workshop Content: /home/user/.steam/steam/steamapps/workshop/content/221100/
+Projects Root:    /home/user/Documents/DayZProjects/
+Instance Root:    /home/user/Documents/DayZProjects/instances/server1/
+Profile Data:     /home/user/Documents/DayZProjects/instances/server1/profiles/
+Server RPT Logs:  /home/user/.local/share/DayZ/DayZServer_YYYY-MM-DD_HH-MM-SS.RPT
+Instance Logs:    /home/user/Documents/DayZProjects/instances/server1/logs/
 ```
 
 ### File Locations (Windows)
 
 ```
-Steam Common: C:\Program Files\Steam\steamapps\common\DayZServer\
-MP Missions:  ...\steamapps\common\DayZServer\mpmissions\
-Profile Data: %APPDATA%\DayZ\server1\profile\
-Logs:         %APPDATA%\DayZ\server1\profile\logs\
+Steam Common:     C:\Program Files\Steam\steamapps\common\DayZServer\
+MP Missions:      ...\steamapps\common\DayZServer\mpmissions\
+Client Install:   C:\Program Files\Steam\steamapps\common\DayZ\
+Workshop Content: ...\steamapps\workshop\content\221100\
+Projects Root:    %USERPROFILE%\Documents\DayZProjects\
+Instance Root:    %USERPROFILE%\Documents\DayZProjects\instances\server1\
+Profile Data:     %USERPROFILE%\Documents\DayZProjects\instances\server1\profiles\
+Server RPT Logs:  %LOCALAPPDATA%\DayZ\DayZServer_YYYY-MM-DD_HH-MM-SS.RPT
+Instance Logs:    %USERPROFILE%\Documents\DayZProjects\instances\server1\logs\
 ```
 
 ### Essential serverDZ.cfg Parameters

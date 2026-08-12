@@ -213,7 +213,7 @@ DayzConfigMaster/
 ├── main.py                  # GUI application entry point
 ├── tests/                   # pytest test suite
 ├── wiki/                    # User-facing documentation
-├── references/              # External reference material (not tracked by git)
+├── references/              # External reference material (ignored by git)
 ├── CHANGELOG.md             # Recent changes
 ├── requirements.txt         # Python dependencies
 └── README.md                # This file

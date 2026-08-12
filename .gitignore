@@ -39,7 +39,7 @@ storage_1/
 
 # External tooling / heavy reference bundles
 steamcmd/
-references/git/
+references/
 
 # DayZ runtime files that may appear during testing
 *.bin
